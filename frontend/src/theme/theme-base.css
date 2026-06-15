@@ -1,0 +1,224 @@
+html[data-app-scheme-guard="light"] .app-chrome,
+html[data-app-scheme="light"] .app-body {
+  color-scheme: light;
+}
+
+html[data-app-scheme-guard="dark"] .app-chrome,
+html[data-app-scheme="dark"] .app-body {
+  color-scheme: dark;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.app-chrome {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-primary-bg);
+}
+
+.app-brand {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.theme-controls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.theme-controls select,
+.theme-controls button {
+  font: inherit;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.6rem;
+}
+
+.sidebar {
+  border-right: 1px solid var(--color-border);
+  background: var(--color-primary-bg);
+  padding: 1rem 0.75rem;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.sidebar a {
+  display: block;
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  color: var(--color-fg);
+  text-decoration: none;
+}
+
+.sidebar a.active {
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+.app-body {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.page-main {
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.page-title {
+  margin: 0 0 1rem;
+  font-size: 1.5rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.filters input {
+  min-width: 12rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-fg);
+}
+
+.repo-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.repo-table th,
+.repo-table td {
+  text-align: left;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.repo-table th {
+  color: var(--color-fg-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.repo-path {
+  font-weight: 600;
+}
+
+.repo-path .sep {
+  margin: 0 0.35rem;
+  color: var(--color-fg-muted);
+}
+
+.age-fresh { color: var(--age-fresh); font-weight: 700; }
+.age-day { color: var(--age-day); font-weight: 600; }
+.age-week { color: var(--age-week); }
+.age-stale { color: var(--age-stale); }
+
+.btn {
+  font: inherit;
+  border-radius: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  cursor: pointer;
+}
+
+.btn-primary {
+  background: var(--color-accent);
+  color: var(--color-on-accent);
+  border-color: transparent;
+}
+
+.btn-ghost {
+  opacity: 0.65;
+  font-size: 0.85rem;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.empty {
+  color: var(--color-fg-muted);
+  padding: 2rem 0;
+}
+
+.card {
+  border: 1px solid var(--color-border);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+  background: var(--color-surface);
+  max-width: 32rem;
+}
+
+.card label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.meta-grid {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.95rem;
+}
+
+.meta-grid dt {
+  color: var(--color-fg-muted);
+  font-size: 0.8rem;
+}
+
+.error-banner {
+  color: var(--color-danger);
+  margin-bottom: 1rem;
+}
+
+.status-pill {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--color-accent-soft);
+}
+
+.status-pill.error {
+  background: color-mix(in srgb, var(--color-danger) 20%, transparent);
+  color: var(--color-danger);
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    border-right: none;
+    border-bottom: 1px solid var(--color-border);
+  }
+}

@@ -1,0 +1,28 @@
+email_domain: example.com
+
+# 监听端口；0 表示随机空闲端口
+listen_port: 0
+
+# 对外 URL 前缀，经 80 端口反向代理子路径访问时填写，如 /tools/gitmail
+public_base_path: ""
+
+allow_anonymous_repo_list: true
+poll_interval_seconds: 120
+manifest_refresh_seconds: 300
+fetch_concurrency: 16
+frontend_poll_seconds: 30
+
+# 反向代理场景下用于取真实客户端 IP 的头名
+trusted_proxy_header: ""
+
+ip_whitelist:
+  - 127.0.0.1
+  - 192.168.*
+
+# IP 或网段到用户名的映射（覆盖 DNS 结果）
+ip_user_map: {}
+
+projects:
+  - name: demo
+    workspace: /path/to/repo/workspace
+    gerrit_base_url: https://review.example.com
