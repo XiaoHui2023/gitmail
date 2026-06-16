@@ -8,6 +8,7 @@
 # 产物：dist/gitmail（Linux 经 staticx）或 dist/gitmail.exe（Windows）；
 #       另有 dist/gitmail-<version>-<platform>.zip 或 .tar.gz（见 tools/bundle_release.py）。
 # Linux staticx 另需系统 patchelf（如 apt install patchelf）；macOS 跳过 staticx。
+# Linux 打包另须在构建机安装 avahi-utils、samba-common-bin（收集进 onefile，目标机可离线运行）。
 # 兼容：单文件 ABI 取决于构建机 glibc；旧 Linux 须在目标机实测 staticx 产物。
 # Spec：仓库根 gitmail-cli.spec，二进制名 gitmail。
 set -euo pipefail
@@ -80,6 +81,15 @@ apply_staticx_linux() {
   echo "完成: $pyi_out（staticx 自解压包；请在目标机实测）"
 }
 
+collect_lan_binaries() {
+  case "$(uname -s 2>/dev/null || true)" in
+    Linux)
+      echo "==> 收集局域网解析工具（avahi-resolve、nmblookup）"
+      "${PYTHON_CMD[@]}" "$ROOT/tools/collect_lan_binaries.py"
+      ;;
+  esac
+}
+
 build_target() {
   local spec="$ROOT/gitmail-cli.spec"
   if [[ ! -f "$spec" ]]; then
@@ -87,6 +97,7 @@ build_target() {
     exit 1
   fi
   build_frontend
+  collect_lan_binaries
   echo "==> PyInstaller: $spec"
   "${PYTHON_CMD[@]}" -m PyInstaller --clean --noconfirm "$spec"
   local dist_name="gitmail"

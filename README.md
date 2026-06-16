@@ -66,6 +66,10 @@ Linux / Git Bash：
 
 Linux 上会对 onefile 再跑 staticx（需系统 `patchelf`），并生成 `gitmail-<version>-linux.tar.gz`。
 
+**离线部署（Linux）**：`pack.sh` 在构建阶段把 `avahi-resolve`、`nmblookup` 及其共享库打进单文件可执行体，目标机无需再 `apt install avahi-utils samba-common-bin`。构建机须联网并安装上述包与 `patchelf`。mDNS 解析仍依赖目标机运行中的 `avahi-daemon`；NetBIOS 解析由内置 `nmblookup` 直接发包。监控仓库仍需目标机已安装 `git`。
+
+**Windows 发布包**：Python 与前端已内嵌；局域网用户名识别依赖系统 `nmblookup`（可选）或 `config.yaml` 的 `ip_user_map`。
+
 运行前复制 `config.example.yaml` 为 `config.yaml`、`.env.example` 为 `.env` 并填写；在解压目录执行：
 
 ```bat

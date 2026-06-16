@@ -34,20 +34,18 @@ if errorlevel 1 exit /b 1
 "%PY%" -m pip install -q --upgrade --force-reinstall "pyinstaller>=6.0"
 if errorlevel 1 exit /b 1
 
-if not exist "frontend\dist" (
-    echo ==^> 构建前端 frontend\dist
-    where npm >nul 2>&1
-    if errorlevel 1 (
-        echo 错误: 未找到 npm，无法构建 frontend\dist。
-        exit /b 1
-    )
-    pushd frontend
-    call npm install
-    if errorlevel 1 exit /b 1
-    call npm run build
-    if errorlevel 1 exit /b 1
-    popd
+echo ==^> 构建前端 frontend\dist
+where npm >nul 2>&1
+if errorlevel 1 (
+    echo 错误: 未找到 npm，无法构建 frontend\dist。
+    exit /b 1
 )
+pushd frontend
+call npm install
+if errorlevel 1 exit /b 1
+call npm run build
+if errorlevel 1 exit /b 1
+popd
 
 if /I not "%TARGET%"=="src" (
     echo 用法: tools\pack.bat [src] >&2
