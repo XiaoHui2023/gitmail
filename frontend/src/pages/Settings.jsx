@@ -2,22 +2,19 @@ import { useEffect, useState } from "react";
 import {
   fetchMe,
   fetchSettings,
-  fetchStatus,
   saveSettings,
 } from "../api.js";
 
 export default function SettingsPage() {
   const [user, setUser] = useState(null);
   const [emailEnabled, setEmailEnabled] = useState(false);
-  const [monitor, setMonitor] = useState(null);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    Promise.all([fetchMe(), fetchStatus()])
-      .then(([me, status]) => {
+    fetchMe()
+      .then((me) => {
         setUser(me);
-        setMonitor(status.monitor);
         if (!me.allowed) return null;
         return fetchSettings();
       })
@@ -71,21 +68,6 @@ export default function SettingsPage() {
           <p className="empty">当前 IP 不在白名单，无法修改邮件设置或订阅。</p>
         )}
       </div>
-      {monitor ? (
-        <div className="card" style={{ marginTop: "1rem" }}>
-          <h2 style={{ marginTop: 0, fontSize: "1rem" }}>监控摘要</h2>
-          <dl className="meta-grid">
-            <dt>调度状态</dt>
-            <dd>{monitor.running ? "运行中" : "已停止"}</dd>
-            <dt>上一轮耗时</dt>
-            <dd>{monitor.last_round_seconds?.toFixed(1) ?? "—"} 秒</dd>
-            <dt>仓库数</dt>
-            <dd>{monitor.last_round_repo_count ?? 0}</dd>
-            <dt>失败数</dt>
-            <dd>{monitor.failed_repo_count ?? 0}</dd>
-          </dl>
-        </div>
-      ) : null}
     </section>
   );
 }

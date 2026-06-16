@@ -1,7 +1,9 @@
+import { DEFAULT_SCHEME, DEFAULT_STYLE } from "./theme-config.js";
+
 const STYLE_KEY = "gitmail-style";
 const SCHEME_KEY = "gitmail-scheme";
-const DEFAULT_STYLE = "jade";
-const DEFAULT_SCHEME = "dark";
+
+export { STYLE_KEY, SCHEME_KEY };
 
 export function readStoredTheme() {
   return {

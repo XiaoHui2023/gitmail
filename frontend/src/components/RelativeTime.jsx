@@ -21,19 +21,22 @@ function relativeLabel(ts) {
   return { text, className };
 }
 
-export default function RelativeTime({ timestamp }) {
+function useRelativeTick() {
   const [, tick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => tick((n) => n + 1), 30000);
     return () => clearInterval(id);
   }, []);
+}
+
+export function AbsoluteTime({ timestamp }) {
+  return <span className="time-absolute">{formatAbsolute(timestamp)}</span>;
+}
+
+export function RelativeAge({ timestamp }) {
+  useRelativeTick();
   const rel = relativeLabel(timestamp);
-  return (
-    <div>
-      <div>{formatAbsolute(timestamp)}</div>
-      <div className={rel.className}>{rel.text}</div>
-    </div>
-  );
+  return <span className={rel.className}>{rel.text}</span>;
 }
 
 export function RepoPath({ projectName, repoPath }) {

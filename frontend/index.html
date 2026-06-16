@@ -3,7 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>gitmail</title>
+    <title>GitMail</title>
+    <script>
+      (function () {
+        var s = localStorage.getItem("gitmail-style") || "github";
+        var c = localStorage.getItem("gitmail-scheme") || "light";
+        var r = document.documentElement;
+        r.dataset.appStyle = s;
+        r.dataset.appScheme = c;
+        r.dataset.appSchemeGuard = c;
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

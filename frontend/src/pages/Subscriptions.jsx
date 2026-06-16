@@ -15,7 +15,6 @@ export default function SubscriptionsPage() {
       title="我的订阅"
       pollSeconds={pollSeconds}
       showSubscribe={false}
-      subtleUnsubscribe
     />
   );
 }
