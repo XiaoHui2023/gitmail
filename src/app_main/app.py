@@ -14,7 +14,7 @@ from app_main.config_loader import load_config, resolve_config_path
 from app_main.env_settings import SmtpSettings
 from app_main.mail.notifier import Notifier
 from app_main.monitor.service import MonitorService
-from app_main.paths import resolve_data_dir, resolve_frontend_dist
+from app_main.paths import resolve_database_path, resolve_frontend_dist
 from app_main.store.database import Store
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,7 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         config = AppConfig(email_domain="example.com", projects=[])
         logger.warning("未找到配置文件 %s，使用空配置", path)
 
-    store = Store(resolve_data_dir() / "gitmail.db")
+    store = Store(resolve_database_path(config.database_path))
     smtp = SmtpSettings()
     notifier = Notifier(store, config, smtp)
     monitor = MonitorService(config, store, notifier)

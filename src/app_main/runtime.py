@@ -2,14 +2,7 @@ import socket
 
 import uvicorn
 
-
-def _local_ip() -> str:
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.connect(("8.8.8.8", 80))
-            return sock.getsockname()[0]
-    except OSError:
-        return "127.0.0.1"
+from app_main.identity.client_ip import local_lan_ip
 
 
 def _print_access_urls(host: str, port: int, base_path: str = "") -> None:
@@ -17,9 +10,9 @@ def _print_access_urls(host: str, port: int, base_path: str = "") -> None:
     suffix = f"{prefix}/" if prefix else "/"
     print(f"服务已监听: {host}:{port}")
     print(f"本机访问: http://127.0.0.1:{port}{suffix}")
-    print(f"局域网访问: http://{_local_ip()}:{port}{suffix}")
+    print(f"局域网访问: http://{local_lan_ip()}:{port}{suffix}")
     if prefix:
-        lan_ip = _local_ip()
+        lan_ip = local_lan_ip()
         print(f"反向代理（80 端口）: http://127.0.0.1{suffix}")
         print(f"反向代理（80 端口）: http://{lan_ip}{suffix}")
 

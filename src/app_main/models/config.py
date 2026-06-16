@@ -19,6 +19,10 @@ class AppConfig(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
     email_domain: str = Field(description="用户邮箱后缀，如 corp.example.com")
+    database_path: str = Field(
+        default="",
+        description="SQLite 数据库文件路径；留空则使用运行目录下 data/gitmail.db",
+    )
     listen_port: int = Field(default=0, description="监听端口；0 表示由系统分配空闲端口")
     public_base_path: str = Field(default="", description="对外 URL 路径前缀，如 /tools/gitmail")
     allow_anonymous_repo_list: bool = Field(default=True, description="未在白名单时是否允许只读查看全部仓库")

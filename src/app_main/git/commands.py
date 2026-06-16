@@ -27,7 +27,8 @@ def run_git(repo_path: Path, *args: str, timeout: int = 120) -> str:
         raise GitError(f"git 超时: {' '.join(args)}") from exc
     if proc.returncode != 0:
         stderr = proc.stderr.strip() or proc.stdout.strip()
-        raise GitError(stderr or f"git 失败: {' '.join(args)}")
+        cmd_hint = " ".join(args)
+        raise GitError(stderr or f"git 失败 (exit {proc.returncode}): {cmd_hint}")
     return proc.stdout.strip()
 
 

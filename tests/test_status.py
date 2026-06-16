@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from app_main.app import create_app
 from app_main.identity.whitelist import ip_matches_pattern
 from app_main.manifest.parser import discover_project_repos, normalize_gerrit_base
+from app_main.paths import resolve_database_path
 from app_main.store.database import Store
 
 
@@ -73,6 +74,31 @@ def test_store_subscribe_roundtrip() -> None:
         store.set_email_enabled("alice", True)
         assert store.get_email_enabled("alice")
         store.close()
+
+
+def test_resolve_database_path_default() -> None:
+    assert resolve_database_path("").name == "gitmail.db"
+    assert resolve_database_path("  ").name == "gitmail.db"
+
+
+def test_resolve_database_path_custom(tmp_path: Path) -> None:
+    custom = tmp_path / "state" / "custom.db"
+    assert resolve_database_path(str(custom)) == custom.resolve()
+
+
+def test_api_with_custom_database_path(tmp_path: Path) -> None:
+    db_file = tmp_path / "var" / "gitmail-state.db"
+    cfg = {
+        "email_domain": "corp.test",
+        "database_path": str(db_file),
+        "ip_whitelist": ["testclient"],
+        "projects": [],
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
+    client = TestClient(create_app(cfg_path))
+    assert client.get("/api/status").status_code == 200
+    assert db_file.is_file()
 
 
 def test_api_with_config(tmp_path: Path) -> None:

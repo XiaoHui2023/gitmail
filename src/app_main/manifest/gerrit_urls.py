@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from urllib.parse import quote
 
 from app_main.manifest.parser import normalize_gerrit_base
 
@@ -23,8 +22,8 @@ def build_gerrit_urls(
     project_url = None
     commit_url = None
     if gerrit_project:
-        encoded = quote(gerrit_project, safe="")
-        project_url = f"{base}/#/admin/projects/{encoded}"
+        project = gerrit_project.strip("/")
+        project_url = f"{base}/c/{project}/+/"
     if commit_hash:
         commit_url = f"{base}/q/{commit_hash}"
     return GerritUrls(project_url=project_url, commit_url=commit_url)

@@ -5,6 +5,7 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, Request
 
+from app_main.identity.client_ip import resolve_client_ip
 from app_main.identity.user_resolver import ResolvedUser, build_user
 from app_main.identity.whitelist import is_ip_allowed
 from app_main.models.config import AppConfig
@@ -23,14 +24,8 @@ def get_app_state(request: Request) -> AppState:
 
 
 def get_client_ip(request: Request, state: Annotated[AppState, Depends(get_app_state)]) -> str:
-    header = state.config.trusted_proxy_header.strip()
-    if header:
-        forwarded = request.headers.get(header)
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-    if request.client is None:
-        return "127.0.0.1"
-    return request.client.host
+    direct = request.client.host if request.client else None
+    return resolve_client_ip(direct, request.headers, state.config.trusted_proxy_header)
 
 
 def get_current_user(

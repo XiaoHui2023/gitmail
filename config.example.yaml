@@ -1,5 +1,8 @@
 email_domain: example.com
 
+# SQLite 状态库路径；留空则使用运行目录下 data/gitmail.db
+database_path: ""
+
 # 监听端口；0 表示随机空闲端口
 listen_port: 0
 

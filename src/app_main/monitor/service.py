@@ -131,7 +131,7 @@ class MonitorService:
                 logger.warning("项目 %s: %s", project.name, err)
                 continue
             for repo in repos:
-                status = "ok" if repo.reachable else "unreachable"
+                status = "pending" if repo.reachable else "unreachable"
                 self._store.upsert_repo_meta(
                     repo.repo_key,
                     repo.project_name,
@@ -197,18 +197,34 @@ class MonitorService:
         except GitError as exc:
             fail_count += 1
             delay = min(1800, 30 * (2 ** min(fail_count - 1, 6)))
+            message = str(exc)
+            logger.warning(
+                "仓库 %s (%s) git 检查失败 [%d]: %s",
+                repo.repo_key,
+                repo.local_path,
+                fail_count,
+                message,
+            )
             self._store.update_repo_failure(
                 repo.repo_key,
-                str(exc),
+                message,
                 fail_count,
                 time.time() + delay,
             )
         except Exception as exc:
             fail_count += 1
             delay = min(1800, 30 * (2 ** min(fail_count - 1, 6)))
+            message = str(exc)
+            logger.exception(
+                "仓库 %s (%s) 检查异常 [%d]: %s",
+                repo.repo_key,
+                repo.local_path,
+                fail_count,
+                message,
+            )
             self._store.update_repo_failure(
                 repo.repo_key,
-                str(exc),
+                message,
                 fail_count,
                 time.time() + delay,
             )

@@ -89,7 +89,6 @@ class Store:
                     local_path=excluded.local_path,
                     gerrit_base=excluded.gerrit_base,
                     gerrit_project=excluded.gerrit_project,
-                    status=excluded.status,
                     updated_at=excluded.updated_at
                 """,
                 (
