@@ -96,12 +96,12 @@ def _pick_gerrit_base(review: str, fallback: str | None) -> str | None:
 
 
 def normalize_gerrit_base(value: str) -> str:
-    """把 review 字段或配置 URL 规范为 https 根地址。"""
+    """把 review 字段或配置 URL 规范为 http 根地址。"""
     text = value.strip().rstrip("/")
     if not text:
         return text
     if "://" not in text:
-        text = f"https://{text}"
+        text = f"http://{text}"
     if text.endswith("/gerrit"):
         return text
     # host/path 形式如 review.example.com/gerrit

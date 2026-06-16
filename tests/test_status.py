@@ -30,8 +30,8 @@ def test_ip_whitelist_wildcard() -> None:
 
 
 def test_normalize_gerrit_base() -> None:
-    assert normalize_gerrit_base("review.example.com").startswith("https://")
-    assert "review.example.com" in normalize_gerrit_base("https://review.example.com/gerrit")
+    assert normalize_gerrit_base("review.example.com").startswith("http://")
+    assert "review.example.com" in normalize_gerrit_base("http://review.example.com/gerrit")
 
 
 def test_discover_manifest_from_fixture(tmp_path: Path) -> None:
@@ -65,7 +65,7 @@ def test_store_subscribe_roundtrip() -> None:
             "demo",
             "a/b",
             "/tmp/a/b",
-            "https://review.example.com",
+            "http://review.example.com",
             "platform/a",
             "ok",
         )

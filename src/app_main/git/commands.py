@@ -4,12 +4,29 @@ import re
 import subprocess
 from pathlib import Path
 
+from app_main.git.gerrit_refs import GERRIT3_REMOTE_BRANCH_FALLBACKS, gerrit_upstream_ref_candidates
 from app_main.manifest.gerrit_urls import gerrit_base_from_remote_url
 from app_main.models.repo import CommitInfo
 
 
 class GitError(RuntimeError):
     pass
+
+
+def _format_git_failure(repo_path: Path, args: tuple[str, ...], proc: subprocess.CompletedProcess[str]) -> str:
+    stderr = proc.stderr.strip()
+    stdout = proc.stdout.strip()
+    parts = [
+        f"git -C {repo_path} {' '.join(args)}",
+        f"exit {proc.returncode}",
+    ]
+    if stderr:
+        parts.append(f"stderr: {stderr}")
+    if stdout:
+        parts.append(f"stdout: {stdout}")
+    if not stderr and not stdout:
+        parts.append("无 stderr/stdout 输出")
+    return "; ".join(parts)
 
 
 def run_git(repo_path: Path, *args: str, timeout: int = 120) -> str:
@@ -24,11 +41,9 @@ def run_git(repo_path: Path, *args: str, timeout: int = 120) -> str:
             check=False,
         )
     except subprocess.TimeoutExpired as exc:
-        raise GitError(f"git 超时: {' '.join(args)}") from exc
+        raise GitError(f"git 超时: git -C {repo_path} {' '.join(args)}") from exc
     if proc.returncode != 0:
-        stderr = proc.stderr.strip() or proc.stdout.strip()
-        cmd_hint = " ".join(args)
-        raise GitError(stderr or f"git 失败 (exit {proc.returncode}): {cmd_hint}")
+        raise GitError(_format_git_failure(repo_path, args, proc))
     return proc.stdout.strip()
 
 
@@ -36,16 +51,94 @@ def git_fetch(repo_path: Path, remote: str = "origin") -> None:
     run_git(repo_path, "fetch", "--quiet", remote, "--prune")
 
 
-def resolve_upstream_ref(repo_path: Path) -> str:
+def _try_git_ref(repo_path: Path, label: str, *args: str) -> tuple[str | None, str | None]:
     try:
-        return run_git(repo_path, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}")
-    except GitError:
-        head = run_git(repo_path, "symbolic-ref", "-q", "refs/remotes/origin/HEAD")
-        return head
+        return run_git(repo_path, *args), None
+    except GitError as exc:
+        return None, f"{label}: {exc}"
 
 
-def read_head_commit(repo_path: Path, ref: str | None = None) -> tuple[str, int, str, str]:
-    target = ref or resolve_upstream_ref(repo_path)
+def resolve_upstream_ref(
+    repo_path: Path,
+    *,
+    remote: str = "origin",
+    upstream: str | None = None,
+) -> str:
+    """解析用于对比 Gerrit 远端尖端的引用（repo manifest 优先）。
+
+    Args:
+        repo_path: 本地仓库根目录
+        remote: manifest 中的 remote 名
+        upstream: manifest 中的 upstream / revision 提示
+    """
+    attempts: list[str] = []
+
+    for candidate in gerrit_upstream_ref_candidates(remote, upstream):
+        verified, err = _try_git_ref(
+            repo_path,
+            f"manifest revision -> {candidate}",
+            "rev-parse",
+            "--verify",
+            candidate,
+        )
+        if verified:
+            return candidate
+        if err:
+            attempts.append(err)
+
+    tracking, err = _try_git_ref(
+        repo_path,
+        "@{u}",
+        "rev-parse",
+        "--abbrev-ref",
+        "--symbolic-full-name",
+        "@{u}",
+    )
+    if tracking:
+        return tracking
+    if err:
+        attempts.append(err)
+
+    remote_head, err = _try_git_ref(
+        repo_path,
+        f"refs/remotes/{remote}/HEAD",
+        "symbolic-ref",
+        "-q",
+        f"refs/remotes/{remote}/HEAD",
+    )
+    if remote_head:
+        return remote_head
+    if err:
+        attempts.append(err)
+
+    for branch in GERRIT3_REMOTE_BRANCH_FALLBACKS:
+        candidate = f"refs/remotes/{remote}/{branch}"
+        verified, err = _try_git_ref(
+            repo_path,
+            f"Gerrit 常见远端分支 {candidate}",
+            "rev-parse",
+            "--verify",
+            candidate,
+        )
+        if verified:
+            return candidate
+        if err:
+            attempts.append(err)
+
+    detail = "\n  ".join(attempts) if attempts else "无可用回退"
+    raise GitError(
+        f"无法解析 Gerrit 远端跟踪引用 (repo={repo_path}, remote={remote}, upstream={upstream!r}):\n  {detail}"
+    )
+
+
+def read_head_commit(
+    repo_path: Path,
+    ref: str | None = None,
+    *,
+    remote: str = "origin",
+    upstream: str | None = None,
+) -> tuple[str, int, str, str]:
+    target = ref or resolve_upstream_ref(repo_path, remote=remote, upstream=upstream)
     commit_hash = run_git(repo_path, "rev-parse", target)
     meta = run_git(
         repo_path,

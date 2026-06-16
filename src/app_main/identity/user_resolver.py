@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-import socket
 from dataclasses import dataclass
 
+from app_main.identity.lan_resolve import hostname_to_username, resolve_lan_hostname
 from app_main.identity.whitelist import ip_matches_pattern
 
 
@@ -18,12 +18,14 @@ class ResolvedUser:
 
 def resolve_username(ip: str, ip_user_map: dict[str, str]) -> tuple[str, str]:
     """按 IP 解析用户名，返回 (用户名, 解析方式)。"""
-    dns_name, dns_user = _reverse_dns_username(ip)
     mapped = _lookup_mapping(ip, ip_user_map)
     if mapped:
         return mapped, "map"
-    if dns_user:
-        return dns_user, "dns"
+    host, method = resolve_lan_hostname(ip)
+    if host:
+        username = hostname_to_username(host)
+        if username:
+            return username, method
     return "unknown", "none"
 
 
@@ -52,18 +54,3 @@ def _lookup_mapping(ip: str, ip_user_map: dict[str, str]) -> str | None:
         if ip_matches_pattern(ip, pattern):
             return name
     return None
-
-
-def _reverse_dns_username(ip: str) -> tuple[str, str]:
-    try:
-        host, _, _ = socket.gethostbyaddr(ip)
-    except (socket.herror, socket.gaierror, OSError):
-        return "", ""
-    short = host.split(".")[0]
-    for suffix in ("-pc", "-laptop", "-desktop"):
-        if short.endswith(suffix):
-            short = short[: -len(suffix)]
-            break
-    if short.endswith(".local"):
-        short = short[: -len(".local")]
-    return host, short or ""

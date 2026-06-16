@@ -47,16 +47,12 @@ ensure_venv() {
 }
 
 build_frontend() {
-  if [[ ! -d "$ROOT/frontend/dist" ]]; then
-    echo "==> 构建前端 frontend/dist"
-    if ! command -v npm >/dev/null 2>&1; then
-      echo "错误: 未找到 npm，无法构建 frontend/dist。" >&2
-      exit 1
-    fi
-    (cd "$ROOT/frontend" && npm install && npm run build)
-  else
-    echo "==> 已存在 frontend/dist，跳过 npm build（删除 dist 可强制重建）"
+  echo "==> 构建前端 frontend/dist"
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "错误: 未找到 npm，无法构建 frontend/dist。" >&2
+    exit 1
   fi
+  (cd "$ROOT/frontend" && npm install && npm run build)
 }
 
 apply_staticx_linux() {

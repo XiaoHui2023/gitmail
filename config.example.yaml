@@ -22,10 +22,10 @@ ip_whitelist:
   - 127.0.0.1
   - 192.168.*
 
-# IP 或网段到用户名的映射（覆盖 DNS 结果）
+# IP 或网段到用户名的映射（覆盖 avahi / nmblookup 解析结果）
 ip_user_map: {}
 
 projects:
   - name: demo
     workspace: /path/to/repo/workspace
-    gerrit_base_url: https://review.example.com
+    gerrit_base_url: http://review.example.com

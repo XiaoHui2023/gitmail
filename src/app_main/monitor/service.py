@@ -182,7 +182,11 @@ class MonitorService:
                     "ok",
                 )
             old_hash = row["last_commit_hash"] if row else None
-            commit_hash, commit_time, subject, author = read_head_commit(repo_path)
+            commit_hash, commit_time, subject, author = read_head_commit(
+                repo_path,
+                remote=repo.remote_name,
+                upstream=repo.upstream,
+            )
             recent = read_recent_commits(repo_path, old_hash, commit_hash)
             changed = self._store.update_repo_success(
                 repo.repo_key,

@@ -10,7 +10,10 @@ class ProjectConfig(BaseModel):
 
     name: str = Field(description="展示用项目名")
     workspace: str = Field(description="含 .repo 的工作区根路径")
-    gerrit_base_url: str | None = Field(default=None, description="Gerrit 根 URL，清单与远端均无法推断时使用")
+    gerrit_base_url: str | None = Field(
+        default=None,
+        description="Gerrit 根 URL（网页为 http），清单与远端均无法推断时使用",
+    )
 
 
 class AppConfig(BaseModel):

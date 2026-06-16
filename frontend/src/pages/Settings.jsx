@@ -5,6 +5,17 @@ import {
   saveSettings,
 } from "../api.js";
 
+function formatResolveMethod(method) {
+  if (!method) return "—";
+  const labels = {
+    map: "配置映射",
+    avahi: "mDNS（avahi-resolve）",
+    nmblookup: "NetBIOS（nmblookup）",
+    none: "未识别",
+  };
+  return labels[method] ?? method;
+}
+
 export default function SettingsPage() {
   const [user, setUser] = useState(null);
   const [emailEnabled, setEmailEnabled] = useState(false);
@@ -50,7 +61,7 @@ export default function SettingsPage() {
           <dt>邮箱</dt>
           <dd>{user?.email || "（未识别）"}</dd>
           <dt>识别方式</dt>
-          <dd>{user?.resolve_method ?? "—"}</dd>
+          <dd>{formatResolveMethod(user?.resolve_method)}</dd>
           <dt>白名单</dt>
           <dd>{user?.allowed ? "已通过" : "未通过"}</dd>
         </dl>
