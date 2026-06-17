@@ -75,10 +75,31 @@ jobs:
           chmod +x dist/gitmail
 
       - name: Update rolling tag
-        run: |
-          tag="${{ steps.ver.outputs.tag }}"
-          git tag -fa "${tag}" "${{ github.sha }}" -m "${tag}"
-          git push origin "${tag}" --force
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = `${{ steps.ver.outputs.tag }}`;
+            const sha = context.sha;
+            try {
+              await github.rest.git.updateRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `tags/${tag}`,
+                sha,
+                force: true,
+              });
+            } catch (error) {
+              if (error.status === 404) {
+                await github.rest.git.createRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `refs/tags/${tag}`,
+                  sha,
+                });
+              } else {
+                throw error;
+              }
+            }
 
       - uses: softprops/action-gh-release@v2
         env:
