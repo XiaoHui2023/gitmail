@@ -2,7 +2,7 @@
 name = "gitmail"
 version = "0.0.0"
 description = "Git 邮件相关本地 Web 工具"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
