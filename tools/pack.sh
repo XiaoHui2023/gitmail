@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
-# 统一打包：构建 frontend/dist、PyInstaller onefile、Linux 再 staticx。
+# 统一打包：构建 frontend/dist、PyInstaller onefile；Linux 默认 staticx，PACK_LINUX_SKIP_STATICX=1 时跳过。
 # 每次 pip 对项目与打包工具 --force-reinstall，避免 .venv 残留旧依赖。
 #
 # 用法（仓库根）：
 #   ./tools/pack.sh [src]
 #   bash tools/pack.sh [src]
-# 产物：dist/gitmail（Linux 经 staticx）或 dist/gitmail.exe（Windows）；
-#       另有 dist/gitmail-<version>-<platform>.zip 或 .tar.gz（见 tools/bundle_release.py）。
-# Linux staticx 另需系统 patchelf（如 apt install patchelf）；macOS 跳过 staticx。
+# 产物：dist/gitmail（Linux；默认经 staticx，或 PACK_LINUX_SKIP_STATICX=1 仅 PyInstaller）
+#       或 dist/gitmail.exe（Windows）；另有 dist/gitmail-<version>-<platform>.zip 或 .tar.gz。
+# Linux staticx 另需系统 patchelf（apt install patchelf）；PACK_LINUX_SKIP_STATICX=1 时跳过 staticx/patchelf。
+# GitHub Release CI（ubuntu:16.04）设 PACK_LINUX_SKIP_STATICX=1，见 tools/ci_pack_ubuntu16.sh。
 # Linux 打包另须在构建机安装 avahi-utils、samba-common-bin（收集进 onefile，目标机可离线运行）。
-# 兼容：单文件 ABI 取决于构建机 glibc；旧 Linux 须在目标机实测 staticx 产物。
+# 兼容：单文件 ABI 取决于构建机 glibc；Release 在 Ubuntu 16.04 容器内构建（glibc 2.23）。
 # Spec：仓库根 gitmail-cli.spec，二进制名 gitmail。
 set -euo pipefail
 
@@ -19,10 +20,10 @@ cd "$ROOT"
 TARGET="${1:-src}"
 
 ensure_venv() {
-  if [[ -f "$ROOT/.venv/Scripts/python.exe" ]]; then
-    PYTHON_CMD=("$ROOT/.venv/Scripts/python.exe")
-  elif [[ -f "$ROOT/.venv/bin/python" ]]; then
+  if [[ -f "$ROOT/.venv/bin/python" ]]; then
     PYTHON_CMD=("$ROOT/.venv/bin/python")
+  elif [[ -f "$ROOT/.venv/Scripts/python.exe" ]]; then
+    PYTHON_CMD=("$ROOT/.venv/Scripts/python.exe")
   else
     echo "未找到 .venv，正在创建 ..."
     case "$(uname -s 2>/dev/null || true)" in
@@ -110,7 +111,14 @@ build_target() {
     exit 1
   fi
   case "$(uname -s 2>/dev/null || true)" in
-    Linux) apply_staticx_linux "$dist_name" ;;
+    Linux)
+      chmod +x "$ROOT/dist/${dist_name}"
+      if [[ "${PACK_LINUX_SKIP_STATICX:-}" == "1" ]]; then
+        echo "完成: $ROOT/dist/${dist_name}（PACK_LINUX_SKIP_STATICX=1，跳过 staticx）"
+      else
+        apply_staticx_linux "$dist_name"
+      fi
+      ;;
     *) echo "完成: $ROOT/dist/${dist_name}（非 Linux，跳过 staticx）" ;;
   esac
 }

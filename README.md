@@ -47,26 +47,26 @@ Vite 将 `/api` 代理到 `http://127.0.0.1:8765`。
 
 ## 发布
 
-**单文件可执行体**（含前端静态资源，解压即用）：
+**本地打包**（单文件可执行体，含前端静态资源）：
 
 ```bat
 tools\pack.bat
 ```
 
-产物在 `dist/`：
-
-- `gitmail.exe` — Windows 单文件服务
-- `gitmail-0.0.0-windows.zip` — 可执行体 + README + 配置示例
-
-Linux / Git Bash：
-
 ```bash
 ./tools/pack.sh
 ```
 
-Linux 上会对 onefile 再跑 staticx（需系统 `patchelf`），并生成 `gitmail-<version>-linux.tar.gz`。
+产物在 `dist/`：`gitmail` / `gitmail.exe`，以及 `gitmail-<version>-<platform>.zip` 或 `.tar.gz`。
 
-**离线部署（Linux）**：`pack.sh` 在构建阶段把 `avahi-resolve`、`nmblookup` 及其共享库打进单文件可执行体，目标机无需再 `apt install avahi-utils samba-common-bin`。构建机须联网并安装上述包与 `patchelf`。mDNS 解析仍依赖目标机运行中的 `avahi-daemon`；NetBIOS 解析由内置 `nmblookup` 直接发包。监控仓库仍需目标机已安装 `git`。
+**GitHub Release**（推荐 Linux 下载）：push `master` 后 CI 在 **Ubuntu 16.04** 容器内跑 PyInstaller（**不用 staticx**），滚动覆盖 tag `v{version}`，Release 页附：
+
+- `gitmail` — Linux onefile 可执行体
+- `gitmail-<version>-linux.tar.gz` — 可执行体 + README + 配置示例
+
+本地 Linux 若需 staticx 自解压包，不设 `PACK_LINUX_SKIP_STATICX` 直接 `./tools/pack.sh`（须 `patchelf`）；与 Release 产物不同。
+
+**离线部署（Linux）**：`pack.sh` 在构建阶段把 `avahi-resolve`、`nmblookup` 及其共享库打进单文件可执行体，目标机无需再 `apt install avahi-utils samba-common-bin`。构建机须安装上述包；mDNS 解析仍依赖目标机运行中的 `avahi-daemon`；NetBIOS 解析由内置 `nmblookup` 直接发包。监控仓库仍需目标机已安装 `git`。
 
 **Windows 发布包**：Python 与前端已内嵌；局域网用户名识别依赖系统 `nmblookup`（可选）或 `config.yaml` 的 `ip_user_map`。
 

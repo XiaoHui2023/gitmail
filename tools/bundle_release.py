@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import pathlib
 import platform
+import re
 import shutil
 import sys
-import tomllib
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 
@@ -19,8 +19,12 @@ RELEASE_PATHS = (
 
 
 def _project_version(root: pathlib.Path) -> str:
-    data = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8"))
-    return str(data["project"]["version"])
+    text = (root / "pyproject.toml").read_text(encoding="utf-8")
+    match = re.search(r'(?m)^version\s*=\s*"([^"]+)"', text)
+    if not match:
+        print("错误: pyproject.toml 中未找到 version。", file=sys.stderr)
+        raise SystemExit(1)
+    return match.group(1)
 
 
 def _platform_tag() -> str:
