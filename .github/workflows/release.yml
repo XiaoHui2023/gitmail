@@ -74,6 +74,12 @@ jobs:
           test -f "dist/gitmail-${{ steps.ver.outputs.version }}-linux.tar.gz"
           chmod +x dist/gitmail
 
+      - name: Update rolling tag
+        run: |
+          tag="${{ steps.ver.outputs.tag }}"
+          git tag -fa "${tag}" "${{ github.sha }}" -m "${tag}"
+          git push origin "${tag}" --force
+
       - uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
