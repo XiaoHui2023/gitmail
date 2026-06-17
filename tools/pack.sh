@@ -7,7 +7,8 @@
 #   bash tools/pack.sh [src]
 # 产物：dist/gitmail 或 dist/gitmail.exe，以及 dist/gitmail-<version>-<platform>.zip 或 .tar.gz。
 # Linux 打包须在构建机安装 avahi-utils、samba-common-bin（收集进 onefile，目标机可离线运行）。
-# 兼容：单文件 ABI 取决于构建机 glibc；请在目标环境实测。
+# GitHub Release CI：宿主机先 npm build，容器内 PACK_SKIP_FRONTEND_BUILD=1，见 tools/ci_pack_ubuntu16.sh。
+# 兼容：单文件 ABI 取决于构建机 glibc；Release 在 Ubuntu 16.04 容器内构建（glibc 2.23）。
 # Spec：仓库根 gitmail-cli.spec，二进制名 gitmail。
 set -euo pipefail
 
@@ -46,6 +47,10 @@ ensure_venv() {
 }
 
 build_frontend() {
+  if [[ "${PACK_SKIP_FRONTEND_BUILD:-}" == "1" ]] && [[ -f "$ROOT/frontend/dist/index.html" ]]; then
+    echo "==> 跳过前端构建（PACK_SKIP_FRONTEND_BUILD=1，沿用已有 frontend/dist）"
+    return 0
+  fi
   echo "==> 构建前端 frontend/dist"
   if ! command -v npm >/dev/null 2>&1; then
     echo "错误: 未找到 npm，无法构建 frontend/dist。" >&2

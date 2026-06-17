@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-linux-ubuntu16:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Build frontend on host
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+      - name: Pack in Ubuntu 16.04
+        run: |
+          docker run --rm \
+            -v "$GITHUB_WORKSPACE:/work" \
+            -w /work \
+            ubuntu:16.04 \
+            bash tools/ci_pack_ubuntu16.sh
+
+      - name: Fix dist permissions
+        run: sudo chown -R "$(id -u):$(id -g)" dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-release
+          path: dist/
+
+  publish-release:
+    needs: build-linux-ubuntu16
+    if: always() && needs.build-linux-ubuntu16.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: ver
+        run: |
+          version=$(grep -E '^version\s*=' pyproject.toml | head -1 | sed -E 's/.*=\s*"([^"]+)".*/\1/')
+          if [ -z "$version" ]; then
+            echo "错误: 无法从 pyproject.toml 解析 version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-release
+          path: dist/
+
+      - name: Verify release files
+        run: |
+          ls -la dist/
+          test -f "dist/gitmail"
+          test -f "dist/gitmail-${{ steps.ver.outputs.version }}-linux.tar.gz"
+          chmod +x dist/gitmail
+
+      - uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.ver.outputs.tag }}
+          target_commitish: ${{ github.sha }}
+          generate_release_notes: false
+          overwrite_files: true
+          files: |
+            dist/gitmail
+            dist/gitmail-${{ steps.ver.outputs.version }}-linux.tar.gz

@@ -59,7 +59,9 @@ tools\pack.bat
 
 产物在 `dist/`：`gitmail` / `gitmail.exe`，以及 `gitmail-<version>-<platform>.zip` 或 `.tar.gz`（含 README 与配置示例）。
 
-本仓库**仅 PyInstaller onefile**，不使用 staticx；无 GitHub Release 自动发版，请在目标环境相近的构建机上手动执行上述命令。
+本仓库**仅 PyInstaller onefile**，不使用 staticx。
+
+**GitHub Release**（push `master` 自动触发）：在 Ubuntu 16.04（glibc 2.23）容器内 PyInstaller 打包，发布 `gitmail` 单文件与 `gitmail-<version>-linux.tar.gz`（含 README 与配置示例）。滚动 tag `v{pyproject.toml version}`（当前 `v0.0.0`）随每次成功发布覆盖到最新 `master` 提交。本地打包请在目标环境相近的构建机上执行上述命令。
 
 **离线部署（Linux）**：`pack.sh` 在构建阶段把 `avahi-resolve`、`nmblookup` 及其共享库打进单文件可执行体，目标机无需再 `apt install avahi-utils samba-common-bin`。构建机须安装上述包；mDNS 解析仍依赖目标机运行中的 `avahi-daemon`；NetBIOS 解析由内置 `nmblookup` 直接发包。监控仓库仍需目标机已安装 `git`。
 
