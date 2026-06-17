@@ -57,14 +57,9 @@ tools\pack.bat
 ./tools/pack.sh
 ```
 
-产物在 `dist/`：`gitmail` / `gitmail.exe`，以及 `gitmail-<version>-<platform>.zip` 或 `.tar.gz`。
+产物在 `dist/`：`gitmail` / `gitmail.exe`，以及 `gitmail-<version>-<platform>.zip` 或 `.tar.gz`（含 README 与配置示例）。
 
-**GitHub Release**（推荐 Linux 下载）：push `master` 后 CI 在 **Ubuntu 16.04** 容器内跑 PyInstaller（**不用 staticx**），滚动覆盖 tag `v{version}`，Release 页附：
-
-- `gitmail` — Linux onefile 可执行体
-- `gitmail-<version>-linux.tar.gz` — 可执行体 + README + 配置示例
-
-本地 Linux 若需 staticx 自解压包，不设 `PACK_LINUX_SKIP_STATICX` 直接 `./tools/pack.sh`（须 `patchelf`）；与 Release 产物不同。
+本仓库**仅 PyInstaller onefile**，不使用 staticx；无 GitHub Release 自动发版，请在目标环境相近的构建机上手动执行上述命令。
 
 **离线部署（Linux）**：`pack.sh` 在构建阶段把 `avahi-resolve`、`nmblookup` 及其共享库打进单文件可执行体，目标机无需再 `apt install avahi-utils samba-common-bin`。构建机须安装上述包；mDNS 解析仍依赖目标机运行中的 `avahi-daemon`；NetBIOS 解析由内置 `nmblookup` 直接发包。监控仓库仍需目标机已安装 `git`。
 
@@ -104,15 +99,13 @@ Nginx 片段（站点根已在 80 端口）：
 
 ```nginx
 location /tools/gitmail/ {
-    proxy_pass http://[::1]:8765/tools/gitmail/;
+    proxy_pass http://127.0.0.1:8765/tools/gitmail/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
 }
 ```
-
-纯 IPv6 环境请用 `[::1]` 作 upstream；若本机仍启用 IPv4 回环，也可写 `127.0.0.1`。
 
 用户访问 `http://<服务器IP>/tools/gitmail/`，无需 `:端口`。
 

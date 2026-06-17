@@ -1,6 +1,6 @@
 @echo off
 setlocal EnableExtensions
-rem Pack onefile via PyInstaller; builds frontend/dist first; no staticx on Windows. ASCII rem only.
+rem Pack onefile via PyInstaller; builds frontend/dist first. ASCII rem only.
 rem Usage from repo root: tools\pack.bat [src]
 rem Outputs: dist\gitmail.exe and dist\gitmail-<version>-windows.zip
 rem Spec: gitmail-cli.spec builds gitmail.exe
@@ -66,7 +66,7 @@ echo ==^> PyInstaller: %SPEC%
 if errorlevel 1 exit /b 1
 
 if exist "%CD%\dist\gitmail.exe" (
-    echo 完成: %CD%\dist\gitmail.exe（Windows：无 staticx 步骤）
+    echo 完成: %CD%\dist\gitmail.exe
 ) else (
     echo 错误: 未在 dist 找到 gitmail.exe。 >&2
     exit /b 1
