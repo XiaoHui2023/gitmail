@@ -6,6 +6,8 @@ Linux 打包前由 tools/collect_lan_binaries.py 收集 avahi-resolve / nmblooku
 """
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 from PyInstaller.building.api import EXE, PYZ
@@ -30,6 +32,21 @@ def _repo_root_from_spec() -> Path:
             ).is_file():
                 return base
     return spec.parent
+
+
+def _sqlite_binaries() -> list[tuple[str, str]]:
+    """把构建环境的 libsqlite3 打进 onefile，避免目标机旧系统库缺 sqlite3_trace_v2。"""
+    lib_dirs: list[Path] = []
+    conda_prefix = os.environ.get("CONDA_PREFIX")
+    if conda_prefix:
+        lib_dirs.append(Path(conda_prefix) / "lib")
+    lib_dirs.append(Path(sys.executable).resolve().parent.parent / "lib")
+    for lib_dir in lib_dirs:
+        for name in ("libsqlite3.so.0", "libsqlite3.so"):
+            candidate = lib_dir / name
+            if candidate.is_file():
+                return [(str(candidate.resolve()), ".")]
+    return []
 
 
 def _lan_binaries(repo_root: Path) -> list[tuple[str, str]]:
@@ -97,7 +114,7 @@ runtime_hooks = [str(repo_root / "tools" / "pyi_rth_lan_bin.py")]
 a = Analysis(
     [str(entry)],
     pathex=[str(repo_root / "src")],
-    binaries=_lan_binaries(repo_root),
+    binaries=_lan_binaries(repo_root) + _sqlite_binaries(),
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],

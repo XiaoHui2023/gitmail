@@ -104,11 +104,15 @@ Nginx 片段（站点根已在 80 端口）：
 
 ```nginx
 location /tools/gitmail/ {
-    proxy_pass http://127.0.0.1:8765/tools/gitmail/;
+    proxy_pass http://[::1]:8765/tools/gitmail/;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
 }
 ```
+
+纯 IPv6 环境请用 `[::1]` 作 upstream；若本机仍启用 IPv4 回环，也可写 `127.0.0.1`。
 
 用户访问 `http://<服务器IP>/tools/gitmail/`，无需 `:端口`。
 
