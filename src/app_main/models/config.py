@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+import re
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ProjectConfig(BaseModel):
@@ -36,4 +38,15 @@ class AppConfig(BaseModel):
     trusted_proxy_header: str = Field(default="", description="可信代理 IP 头名，如 X-Forwarded-For")
     ip_whitelist: list[str] = Field(default_factory=lambda: ["127.0.0.1"], description="允许写操作的 IP 模式")
     ip_user_map: dict[str, str] = Field(default_factory=dict, description="IP 到用户名的显式映射")
+    username_extract_regexes: list[str] = Field(
+        default_factory=list,
+        description="从解析到的用户名中提取真实邮箱前缀的正则表达式列表",
+    )
     projects: list[ProjectConfig] = Field(default_factory=list, description="待监控项目列表")
+
+    @field_validator("username_extract_regexes")
+    @classmethod
+    def validate_username_extract_regexes(cls, value: list[str]) -> list[str]:
+        for pattern in value:
+            re.compile(pattern)
+        return value

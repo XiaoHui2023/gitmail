@@ -34,7 +34,13 @@ def get_current_user(
     ip: Annotated[str, Depends(get_client_ip)],
 ) -> ResolvedUser:
     allowed = is_ip_allowed(ip, state.config.ip_whitelist)
-    return build_user(ip, state.config.email_domain, state.config.ip_user_map, allowed)
+    return build_user(
+        ip,
+        state.config.email_domain,
+        state.config.ip_user_map,
+        allowed,
+        state.config.username_extract_regexes,
+    )
 
 
 def require_allowed_user(user: Annotated[ResolvedUser, Depends(get_current_user)]) -> ResolvedUser:

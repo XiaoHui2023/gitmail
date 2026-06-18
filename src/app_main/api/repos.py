@@ -35,6 +35,7 @@ def _serialize_snapshot(store, row, user: ResolvedUser | None) -> dict:
         "last_commit_author": snap.last_commit_author,
         "gerrit_project_url": snap.gerrit_project_url,
         "gerrit_commit_url": snap.gerrit_commit_url,
+        "gerrit_change_number": snap.gerrit_change_number,
         "error_message": snap.error_message,
         "subscribed": snap.subscribed,
         "recent_commits": [

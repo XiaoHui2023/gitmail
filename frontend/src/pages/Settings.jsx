@@ -5,17 +5,6 @@ import {
   saveSettings,
 } from "../api.js";
 
-function formatResolveMethod(method) {
-  if (!method) return "—";
-  const labels = {
-    map: "配置映射",
-    avahi: "mDNS（avahi-resolve）",
-    nmblookup: "NetBIOS（nmblookup）",
-    none: "未识别",
-  };
-  return labels[method] ?? method;
-}
-
 export default function SettingsPage() {
   const [user, setUser] = useState(null);
   const [emailEnabled, setEmailEnabled] = useState(false);
@@ -60,21 +49,24 @@ export default function SettingsPage() {
           <dd>{user?.ip ?? "…"}</dd>
           <dt>邮箱</dt>
           <dd>{user?.email || "（未识别）"}</dd>
-          <dt>识别方式</dt>
-          <dd>{formatResolveMethod(user?.resolve_method)}</dd>
-          <dt>白名单</dt>
-          <dd>{user?.allowed ? "已通过" : "未通过"}</dd>
         </dl>
         {user?.allowed ? (
-          <label>
-            <input
-              type="checkbox"
-              checked={emailEnabled}
+          <div className="setting-row">
+            <div className="setting-copy">
+              <div className="setting-title">仓库更新时发送邮件</div>
+              <div className="setting-state">{emailEnabled ? "已开启" : "已关闭"}</div>
+            </div>
+            <button
+              type="button"
+              className="switch-control"
+              role="switch"
+              aria-checked={emailEnabled}
               disabled={saving || user.username === "unknown"}
-              onChange={(e) => onToggle(e.target.checked)}
-            />
-            仓库更新时发送邮件
-          </label>
+              onClick={() => onToggle(!emailEnabled)}
+            >
+              <span className="switch-thumb" />
+            </button>
+          </div>
         ) : (
           <p className="empty">当前 IP 不在白名单，无法修改邮件设置或订阅。</p>
         )}

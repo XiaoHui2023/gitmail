@@ -40,6 +40,26 @@ def test_resolve_username_nmblookup() -> None:
     assert method == "nmblookup"
 
 
+def test_resolve_username_extracts_email_prefix() -> None:
+    with patch(
+        "app_main.identity.user_resolver.resolve_lan_hostname",
+        return_value=("user-Lenovo", "nmblookup"),
+    ):
+        username, method = resolve_username("192.168.1.12", {}, [r"^([^-]+)-"])
+    assert username == "user"
+    assert method == "nmblookup"
+
+
+def test_resolve_username_uses_original_when_extract_misses() -> None:
+    with patch(
+        "app_main.identity.user_resolver.resolve_lan_hostname",
+        return_value=("user-Lenovo", "nmblookup"),
+    ):
+        username, method = resolve_username("192.168.1.12", {}, [r"^pc-(.+)$"])
+    assert username == "user-Lenovo"
+    assert method == "nmblookup"
+
+
 def test_resolve_username_none() -> None:
     with patch(
         "app_main.identity.user_resolver.resolve_lan_hostname",

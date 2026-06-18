@@ -16,6 +16,7 @@ from app_main.git.commands import (
     read_recent_commits,
 )
 from app_main.mail.notifier import Notifier
+from app_main.manifest.gerrit_urls import resolve_gerrit_change_number
 from app_main.manifest.parser import discover_project_repos
 from app_main.models.config import AppConfig
 from app_main.models.repo import DiscoveredRepo
@@ -188,6 +189,24 @@ class MonitorService:
                 upstream=repo.upstream,
             )
             recent = read_recent_commits(repo_path, old_hash, commit_hash)
+            existing_change_number = row["gerrit_change_number"] if row else None
+            gerrit_change_number = existing_change_number
+            if gerrit_base and (commit_hash != old_hash or not existing_change_number):
+                try:
+                    gerrit_change_number = resolve_gerrit_change_number(
+                        gerrit_base,
+                        repo.gerrit_project,
+                        commit_hash,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Gerrit change number 查询失败 %s (%s): %s",
+                        repo.repo_key,
+                        commit_hash,
+                        exc,
+                    )
+                    if commit_hash != old_hash:
+                        gerrit_change_number = None
             changed = self._store.update_repo_success(
                 repo.repo_key,
                 commit_hash,
@@ -195,6 +214,7 @@ class MonitorService:
                 subject,
                 author,
                 recent,
+                gerrit_change_number,
             )
             if changed and old_hash is not None:
                 self._notifier.on_repo_updated(repo.repo_key, commit_hash, recent)

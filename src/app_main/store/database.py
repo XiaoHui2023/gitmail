@@ -41,6 +41,7 @@ class Store:
                     last_commit_time INTEGER,
                     last_commit_subject TEXT,
                     last_commit_author TEXT,
+                    gerrit_change_number INTEGER,
                     recent_commits_json TEXT,
                     error_message TEXT,
                     fail_count INTEGER NOT NULL DEFAULT 0,
@@ -64,7 +65,16 @@ class Store:
                 );
                 """
             )
+            self._ensure_column("repo_state", "gerrit_change_number", "INTEGER")
             self._conn.commit()
+
+    def _ensure_column(self, table: str, column: str, definition: str) -> None:
+        columns = {
+            row["name"]
+            for row in self._conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+        if column not in columns:
+            self._conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
 
     def upsert_repo_meta(
         self,
@@ -112,6 +122,7 @@ class Store:
         subject: str,
         author: str,
         recent_commits: list[CommitInfo],
+        gerrit_change_number: int | None = None,
     ) -> bool:
         """写入成功检查结果；若提交号变化返回 True。"""
         with self._lock:
@@ -139,6 +150,7 @@ class Store:
                     last_commit_time=?,
                     last_commit_subject=?,
                     last_commit_author=?,
+                    gerrit_change_number=?,
                     recent_commits_json=?,
                     error_message=NULL,
                     fail_count=0,
@@ -151,6 +163,7 @@ class Store:
                     commit_time,
                     subject,
                     author,
+                    gerrit_change_number,
                     commits_json,
                     time.time(),
                     repo_key,
@@ -279,7 +292,8 @@ class Store:
         gerrit_base = row["gerrit_base"]
         gerrit_project = row["gerrit_project"]
         commit_hash = row["last_commit_hash"]
-        urls = build_gerrit_urls(gerrit_base, gerrit_project, commit_hash)
+        change_number = row["gerrit_change_number"]
+        urls = build_gerrit_urls(gerrit_base, gerrit_project, commit_hash, change_number)
         recent: list[CommitInfo] = []
         if row["recent_commits_json"]:
             for item in json.loads(row["recent_commits_json"]):
@@ -304,6 +318,7 @@ class Store:
             gerrit_project=gerrit_project,
             gerrit_project_url=urls.project_url,
             gerrit_commit_url=urls.commit_url,
+            gerrit_change_number=change_number,
             error_message=row["error_message"],
             subscribed=subscribed,
             recent_commits=recent,

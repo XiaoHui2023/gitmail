@@ -115,3 +115,20 @@ def test_api_with_config(tmp_path: Path) -> None:
     repos = client.get("/api/repos")
     assert repos.status_code == 200
     assert repos.json()["items"] == []
+
+
+def test_api_username_extract_regexes_from_config(tmp_path: Path) -> None:
+    cfg = {
+        "email_domain": "corp.test",
+        "ip_whitelist": ["testclient"],
+        "ip_user_map": {"testclient": "user-Lenovo"},
+        "username_extract_regexes": [r"^([^-]+)-"],
+        "projects": [],
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
+    client = TestClient(create_app(cfg_path))
+    me = client.get("/api/user/me")
+    assert me.status_code == 200
+    assert me.json()["username"] == "user"
+    assert me.json()["email"] == "user@corp.test"

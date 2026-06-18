@@ -25,6 +25,13 @@ ip_whitelist:
 # IP 或网段到用户名的映射（覆盖 avahi / nmblookup 解析结果）
 ip_user_map: {}
 
+# 从解析出的用户名中提取真正的邮箱前缀；第一个匹配的正则生效。
+# 有捕获组时使用第一个非空捕获组；没有捕获组时使用整个匹配结果。
+# 留空或都不匹配时使用原用户名。
+username_extract_regexes: []
+# username_extract_regexes:
+#   - "^([^-]+)-"
+
 projects:
   - name: demo
     workspace: /path/to/repo/workspace

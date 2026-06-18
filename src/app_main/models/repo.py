@@ -51,6 +51,7 @@ class RepoSnapshot:
   gerrit_project: str | None
   gerrit_project_url: str | None
   gerrit_commit_url: str | None
+  gerrit_change_number: int | None
   error_message: str | None
   subscribed: bool = False
   recent_commits: list[CommitInfo] = field(default_factory=list)

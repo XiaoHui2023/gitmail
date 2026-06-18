@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchMe,
   fetchRepos,
@@ -6,7 +6,7 @@ import {
   subscribeRepo,
   unsubscribeRepo,
 } from "../api.js";
-import { AbsoluteTime, RelativeAge, RepoPath } from "./RelativeTime.jsx";
+import { CommitTimeAge, RepoPath } from "./RelativeTime.jsx";
 
 function ExternalLinkIcon() {
   return (
@@ -40,44 +40,11 @@ function BellIcon({ filled = false }) {
   );
 }
 
-function RepoStatus({ repo }) {
-  if (repo.status === "error") {
-    return (
-      <div className="repo-status">
-        <span className="status-pill error">异常</span>
-        {repo.error_message ? (
-          <div className="repo-status-detail">{repo.error_message}</div>
-        ) : null}
-      </div>
-    );
-  }
-  if (repo.status === "unreachable") {
-    return (
-      <div className="repo-status">
-        <span className="status-pill">未检出</span>
-      </div>
-    );
-  }
-  if (repo.status === "pending") {
-    return (
-      <div className="repo-status">
-        <span className="status-pill pending">待检查</span>
-      </div>
-    );
-  }
-  return (
-    <div className="repo-status">
-      <span className="status-pill ok">正常</span>
-    </div>
-  );
-}
-
 export default function RepoList({
   mode = "all",
   pollSeconds = 30,
   title,
   showSubscribe = true,
-  monitorHealth = null,
 }) {
   const [items, setItems] = useState([]);
   const [projectFilter, setProjectFilter] = useState("");
@@ -85,6 +52,7 @@ export default function RepoList({
   const [error, setError] = useState("");
   const [user, setUser] = useState(null);
   const [busyKey, setBusyKey] = useState("");
+  const [sortKey, setSortKey] = useState("time");
 
   const load = useCallback(async () => {
     try {
@@ -114,6 +82,31 @@ export default function RepoList({
   const showActions =
     user?.allowed && (showSubscribe || mode === "subscribed");
 
+  const sortedItems = useMemo(() => {
+    const collator = new Intl.Collator("zh-Hans-CN", {
+      numeric: true,
+      sensitivity: "base",
+    });
+    return [...items].sort((a, b) => {
+      if (sortKey === "name") {
+        const repoCompare = collator.compare(a.repo_path || "", b.repo_path || "");
+        if (repoCompare !== 0) return repoCompare;
+        return collator.compare(a.project_name || "", b.project_name || "");
+      }
+      const aTime = Number(a.last_commit_time);
+      const bTime = Number(b.last_commit_time);
+      const aValid = Number.isFinite(aTime);
+      const bValid = Number.isFinite(bTime);
+      if (aValid && bValid && bTime !== aTime) return bTime - aTime;
+      if (aValid !== bValid) return aValid ? -1 : 1;
+      return collator.compare(a.repo_path || "", b.repo_path || "");
+    });
+  }, [items, sortKey]);
+
+  function SortIcon({ active, direction }) {
+    return <span className="sort-icon" aria-hidden="true">{active ? direction : ""}</span>;
+  }
+
   async function toggleSubscribe(repo) {
     if (!user?.allowed) return;
     setBusyKey(repo.repo_key);
@@ -134,22 +127,6 @@ export default function RepoList({
   return (
     <section>
       <h1 className="page-title">{title}</h1>
-      {monitorHealth?.project_errors &&
-      Object.keys(monitorHealth.project_errors).length > 0 ? (
-        <div className="error-banner">
-          {Object.entries(monitorHealth.project_errors).map(([name, msg]) => (
-            <div key={name}>
-              项目 {name}：{msg}
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {monitorHealth?.failed_repo_count > 0 ? (
-        <p className="monitor-hint">
-          本轮监控有 {monitorHealth.failed_repo_count} 个仓库检查失败，详见下表「状态」列。
-          服务端日志亦会记录每条失败原因。
-        </p>
-      ) : null}
       {error && <div className="error-banner">{error}</div>}
       <div className="filters">
         <input
@@ -169,27 +146,45 @@ export default function RepoList({
         <table className="repo-table">
           <thead>
             <tr>
-              <th>仓库</th>
-              <th>提交时间</th>
-              <th>距今</th>
-              <th>状态</th>
+              <th>
+                <button
+                  type="button"
+                  className="sort-header"
+                  aria-pressed={sortKey === "name"}
+                  onClick={() => setSortKey("name")}
+                >
+                  仓库
+                  <SortIcon active={sortKey === "name"} direction="▲" />
+                </button>
+              </th>
+              <th>最近提交</th>
+              <th>
+                <button
+                  type="button"
+                  className="sort-header"
+                  aria-pressed={sortKey === "time"}
+                  onClick={() => setSortKey("time")}
+                >
+                  提交时间
+                  <SortIcon active={sortKey === "time"} direction="▼" />
+                </button>
+              </th>
               <th className="repo-actions-col" aria-label="操作" />
             </tr>
           </thead>
           <tbody>
-            {items.map((repo) => (
+            {sortedItems.map((repo) => (
               <tr key={repo.repo_key}>
                 <td>
                   <RepoPath projectName={repo.project_name} repoPath={repo.repo_path} />
                 </td>
-                <td className="time-absolute-cell">
-                  <AbsoluteTime timestamp={repo.last_commit_time} />
+                <td className="commit-subject-cell">
+                  <span className="commit-subject" title={repo.last_commit_subject || ""}>
+                    {repo.last_commit_subject || "—"}
+                  </span>
                 </td>
-                <td className="time-relative-cell">
-                  <RelativeAge timestamp={repo.last_commit_time} />
-                </td>
-                <td>
-                  <RepoStatus repo={repo} />
+                <td className="time-combined-cell">
+                  <CommitTimeAge timestamp={repo.last_commit_time} />
                 </td>
                 <td className="repo-actions-cell">
                   <div className="repo-row-actions">

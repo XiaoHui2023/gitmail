@@ -11,7 +11,8 @@ html[data-app-scheme="dark"] .app-main {
 .app-shell {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-main {
@@ -19,6 +20,7 @@ html[data-app-scheme="dark"] .app-main {
   grid-template-columns: 220px 1fr;
   flex: 1;
   min-width: 0;
+  min-height: 0;
 }
 
 .app-chrome {
@@ -137,6 +139,7 @@ a.icon-btn:hover {
   border-right: 1px solid var(--color-border);
   background: var(--color-primary-bg);
   padding: 1rem 0.75rem;
+  overflow-y: auto;
 }
 
 .sidebar nav {
@@ -162,6 +165,7 @@ a.icon-btn:hover {
 .page-main {
   padding: 1.25rem 1.5rem 2rem;
   min-width: 0;
+  overflow-y: auto;
 }
 
 .page-title {
@@ -188,6 +192,7 @@ a.icon-btn:hover {
 .repo-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
 
 .repo-table th,
@@ -204,6 +209,34 @@ a.icon-btn:hover {
   font-size: 0.85rem;
 }
 
+.sort-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 1.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sort-header:hover,
+.sort-header[aria-pressed="true"] {
+  color: var(--color-accent);
+}
+
+.sort-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.75rem;
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
 .repo-path {
   font-weight: 600;
 }
@@ -213,6 +246,20 @@ a.icon-btn:hover {
   color: var(--color-fg-muted);
 }
 
+.commit-subject-cell {
+  min-width: 0;
+}
+
+.commit-subject {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-fg);
+}
+
+.time-combined-cell,
 .time-absolute-cell {
   white-space: nowrap;
   font-size: 0.9rem;
@@ -220,6 +267,17 @@ a.icon-btn:hover {
 
 .time-relative-cell {
   white-space: nowrap;
+}
+
+.commit-time-age {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.time-age-separator {
+  font-weight: 700;
 }
 
 .repo-actions-col {
@@ -290,6 +348,71 @@ a.icon-btn:hover {
   margin-top: 0.75rem;
 }
 
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-border);
+}
+
+.setting-copy {
+  min-width: 0;
+}
+
+.setting-title {
+  font-weight: 600;
+}
+
+.setting-state {
+  margin-top: 0.15rem;
+  color: var(--color-fg-muted);
+  font-size: 0.85rem;
+}
+
+.switch-control {
+  position: relative;
+  flex: 0 0 auto;
+  width: 3rem;
+  height: 1.65rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-primary-bg);
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+
+.switch-control[aria-checked="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+}
+
+.switch-control:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 50%;
+  left: 0.2rem;
+  width: 1.2rem;
+  height: 1.2rem;
+  border-radius: 999px;
+  background: var(--color-surface);
+  box-shadow: 0 1px 3px color-mix(in srgb, var(--color-fg) 24%, transparent);
+  transform: translateY(-50%);
+  transition: left 0.16s ease;
+}
+
+.switch-control[aria-checked="true"] .switch-thumb {
+  left: 1.45rem;
+  background: var(--color-on-accent);
+}
+
 .meta-grid {
   display: grid;
   gap: 0.35rem;
@@ -306,43 +429,6 @@ a.icon-btn:hover {
   margin-bottom: 1rem;
 }
 
-.status-pill {
-  display: inline-block;
-  font-size: 0.75rem;
-  padding: 0.1rem 0.45rem;
-  border-radius: 999px;
-  background: var(--color-accent-soft);
-}
-
-.status-pill.ok {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
-}
-
-.status-pill.pending {
-  background: color-mix(in srgb, var(--color-fg-muted) 15%, transparent);
-  color: var(--color-fg-muted);
-}
-
-.status-pill.error {
-  background: color-mix(in srgb, var(--color-danger) 20%, transparent);
-  color: var(--color-danger);
-}
-
-.repo-status-detail {
-  margin-top: 0.35rem;
-  font-size: 0.75rem;
-  line-height: 1.35;
-  color: var(--color-danger);
-  word-break: break-word;
-  max-width: 28rem;
-}
-
-.monitor-hint {
-  font-size: 0.85rem;
-  color: var(--color-fg-muted);
-  margin: 0 0 1rem;
-}
-
 @media (max-width: 768px) {
   .app-main {
     grid-template-columns: 1fr;
@@ -350,5 +436,6 @@ a.icon-btn:hover {
   .sidebar {
     border-right: none;
     border-bottom: 1px solid var(--color-border);
+    overflow-y: visible;
   }
 }

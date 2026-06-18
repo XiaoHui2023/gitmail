@@ -6,13 +6,14 @@ function formatAbsolute(ts) {
 }
 
 function relativeLabel(ts) {
-  if (!ts) return { text: "暂无", className: "age-stale" };
+  if (!ts) return { text: "n/a", className: "age-stale" };
   const seconds = Math.max(0, Math.floor(Date.now() / 1000 - ts));
   let text;
-  if (seconds < 60) text = `${seconds} 秒前`;
-  else if (seconds < 3600) text = `${Math.floor(seconds / 60)} 分钟前`;
-  else if (seconds < 86400) text = `${Math.floor(seconds / 3600)} 小时前`;
-  else text = `${Math.floor(seconds / 86400)} 天前`;
+  if (seconds < 60) text = `${seconds}s`;
+  else if (seconds < 3600) text = `${Math.floor(seconds / 60)}m`;
+  else if (seconds < 86400) text = `${Math.floor(seconds / 3600)}h`;
+  else if (seconds < 604800) text = `${Math.floor(seconds / 86400)}d`;
+  else text = `${Math.floor(seconds / 604800)}w`;
 
   let className = "age-stale";
   if (seconds < 3600) className = "age-fresh";
@@ -37,6 +38,18 @@ export function RelativeAge({ timestamp }) {
   useRelativeTick();
   const rel = relativeLabel(timestamp);
   return <span className={rel.className}>{rel.text}</span>;
+}
+
+export function CommitTimeAge({ timestamp }) {
+  useRelativeTick();
+  const rel = relativeLabel(timestamp);
+  return (
+    <span className="commit-time-age">
+      <span className="time-absolute">{formatAbsolute(timestamp)}</span>
+      <span className={`time-age-separator ${rel.className}`}>+</span>
+      <span className={rel.className}>{rel.text}</span>
+    </span>
+  );
 }
 
 export function RepoPath({ projectName, repoPath }) {
