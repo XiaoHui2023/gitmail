@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   fetchMe,
   fetchRepos,
@@ -53,8 +53,11 @@ export default function RepoList({
   const [user, setUser] = useState(null);
   const [busyKey, setBusyKey] = useState("");
   const [sortKey, setSortKey] = useState("time");
+  const requestSeqRef = useRef(0);
 
   const load = useCallback(async () => {
+    const requestSeq = requestSeqRef.current + 1;
+    requestSeqRef.current = requestSeq;
     try {
       const params = {
         project: projectFilter.trim(),
@@ -65,10 +68,12 @@ export default function RepoList({
         fetcher(params),
         fetchMe().catch(() => null),
       ]);
+      if (requestSeq !== requestSeqRef.current) return;
       setItems(repoData.items || []);
       setUser(me);
       setError("");
     } catch (err) {
+      if (requestSeq !== requestSeqRef.current) return;
       setError(err.message);
     }
   }, [mode, projectFilter, pathFilter]);

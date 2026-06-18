@@ -55,6 +55,7 @@ html[data-app-scheme="dark"] .app-main {
 .icon-btn,
 a.icon-btn {
   display: inline-flex;
+  flex: 0 0 2.25rem;
   align-items: center;
   justify-content: center;
   width: 2.25rem;
@@ -281,12 +282,12 @@ a.icon-btn:hover {
 }
 
 .repo-actions-col {
-  width: 1%;
+  width: 5.6rem;
   white-space: nowrap;
 }
 
 .repo-actions-cell {
-  width: 1%;
+  width: 5.6rem;
   white-space: nowrap;
 }
 

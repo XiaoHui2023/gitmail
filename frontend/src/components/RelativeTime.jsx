@@ -16,10 +16,17 @@ function relativeLabel(ts) {
   else text = `${Math.floor(seconds / 604800)}w`;
 
   let className = "age-stale";
+  let style;
   if (seconds < 3600) className = "age-fresh";
   else if (seconds < 86400) className = "age-day";
   else if (seconds < 604800) className = "age-week";
-  return { text, className };
+  if (seconds < 3600) {
+    const freshWeight = Math.round(85 - (seconds / 3600) * 50);
+    style = {
+      color: `color-mix(in srgb, var(--age-fresh) ${freshWeight}%, var(--age-day))`,
+    };
+  }
+  return { text, className, style };
 }
 
 function useRelativeTick() {
@@ -37,7 +44,7 @@ export function AbsoluteTime({ timestamp }) {
 export function RelativeAge({ timestamp }) {
   useRelativeTick();
   const rel = relativeLabel(timestamp);
-  return <span className={rel.className}>{rel.text}</span>;
+  return <span className={rel.className} style={rel.style}>{rel.text}</span>;
 }
 
 export function CommitTimeAge({ timestamp }) {
@@ -46,8 +53,8 @@ export function CommitTimeAge({ timestamp }) {
   return (
     <span className="commit-time-age">
       <span className="time-absolute">{formatAbsolute(timestamp)}</span>
-      <span className={`time-age-separator ${rel.className}`}>+</span>
-      <span className={rel.className}>{rel.text}</span>
+      <span className={`time-age-separator ${rel.className}`} style={rel.style}>+</span>
+      <span className={rel.className} style={rel.style}>{rel.text}</span>
     </span>
   );
 }
