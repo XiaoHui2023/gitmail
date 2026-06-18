@@ -66,6 +66,7 @@ class Store:
                 """
             )
             self._ensure_column("repo_state", "gerrit_change_number", "INTEGER")
+            self._ensure_column("repo_state", "upstream_ref_index", "INTEGER NOT NULL DEFAULT 0")
             self._conn.commit()
 
     def _ensure_column(self, table: str, column: str, definition: str) -> None:
@@ -123,6 +124,7 @@ class Store:
         author: str,
         recent_commits: list[CommitInfo],
         gerrit_change_number: int | None = None,
+        upstream_ref_index: int = 0,
     ) -> bool:
         """写入成功检查结果；若提交号变化返回 True。"""
         with self._lock:
@@ -155,6 +157,7 @@ class Store:
                     error_message=NULL,
                     fail_count=0,
                     next_retry_at=0,
+                    upstream_ref_index=?,
                     updated_at=?
                 WHERE repo_key=?
                 """,
@@ -165,6 +168,7 @@ class Store:
                     author,
                     gerrit_change_number,
                     commits_json,
+                    upstream_ref_index,
                     time.time(),
                     repo_key,
                 ),
@@ -194,6 +198,14 @@ class Store:
             )
             self._conn.commit()
 
+    def reset_upstream_ref_index(self, repo_key: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                "UPDATE repo_state SET upstream_ref_index=0 WHERE repo_key=?",
+                (repo_key,),
+            )
+            self._conn.commit()
+
     def list_repo_rows(self) -> list[sqlite3.Row]:
         with self._lock:
             return list(self._conn.execute("SELECT * FROM repo_state ORDER BY project_name, repo_path"))
@@ -204,9 +216,27 @@ class Store:
                 "SELECT * FROM repo_state WHERE repo_key = ?", (repo_key,)
             ).fetchone()
 
-    def remove_missing_repos(self, active_keys: set[str]) -> None:
+    def remove_missing_repos(
+        self,
+        active_keys: set[str],
+        project_names: set[str] | None = None,
+    ) -> None:
         with self._lock:
-            rows = self._conn.execute("SELECT repo_key FROM repo_state").fetchall()
+            if project_names is None:
+                rows = self._conn.execute(
+                    "SELECT repo_key FROM repo_state"
+                ).fetchall()
+            elif not project_names:
+                return
+            else:
+                placeholders = ",".join("?" for _ in project_names)
+                rows = self._conn.execute(
+                    f"""
+                    SELECT repo_key FROM repo_state
+                    WHERE project_name IN ({placeholders})
+                    """,
+                    tuple(project_names),
+                ).fetchall()
             for row in rows:
                 if row["repo_key"] not in active_keys:
                     key = row["repo_key"]

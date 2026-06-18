@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app_main.git.commands import (
     GitError,
+    UpstreamRefError,
     enrich_gerrit_base,
     git_fetch,
     read_head_commit,
@@ -121,6 +122,7 @@ class MonitorService:
         all_repos: list[DiscoveredRepo] = []
         project_errors: dict[str, str] = {}
         active_keys: set[str] = set()
+        refreshed_projects: set[str] = set()
 
         for project in self._config.projects:
             workspace = Path(project.workspace).expanduser()
@@ -131,6 +133,7 @@ class MonitorService:
                 project_errors[project.name] = err
                 logger.warning("项目 %s: %s", project.name, err)
                 continue
+            refreshed_projects.add(project.name)
             for repo in repos:
                 status = "pending" if repo.reachable else "unreachable"
                 self._store.upsert_repo_meta(
@@ -146,7 +149,7 @@ class MonitorService:
             all_repos.extend(repos)
 
         self._last_manifest_refresh = now
-        self._store.remove_missing_repos(active_keys)
+        self._store.remove_missing_repos(active_keys, refreshed_projects)
         with self._lock:
             self._repos = all_repos
         self.health.project_errors = project_errors
@@ -169,6 +172,7 @@ class MonitorService:
 
         repo_path = Path(repo.local_path)
         fail_count = int(row["fail_count"]) if row else 0
+        upstream_ref_index = int(row["upstream_ref_index"]) if row else 0
         try:
             git_fetch(repo_path, repo.remote_name)
             gerrit_base = enrich_gerrit_base(repo_path, repo.gerrit_base, repo.remote_name)
@@ -183,11 +187,16 @@ class MonitorService:
                     "ok",
                 )
             old_hash = row["last_commit_hash"] if row else None
-            commit_hash, commit_time, subject, author = read_head_commit(
-                repo_path,
-                remote=repo.remote_name,
-                upstream=repo.upstream,
-            )
+            try:
+                commit_hash, commit_time, subject, author, upstream_ref_index = read_head_commit(
+                    repo_path,
+                    remote=repo.remote_name,
+                    upstream=repo.upstream,
+                    start_index=upstream_ref_index,
+                )
+            except UpstreamRefError:
+                self._store.reset_upstream_ref_index(repo.repo_key)
+                raise
             recent = read_recent_commits(repo_path, old_hash, commit_hash)
             existing_change_number = row["gerrit_change_number"] if row else None
             gerrit_change_number = existing_change_number
@@ -215,6 +224,7 @@ class MonitorService:
                 author,
                 recent,
                 gerrit_change_number,
+                upstream_ref_index,
             )
             if changed and old_hash is not None:
                 self._notifier.on_repo_updated(repo.repo_key, commit_hash, recent)

@@ -76,6 +76,37 @@ def test_store_subscribe_roundtrip() -> None:
         store.close()
 
 
+def test_store_remove_missing_repos_scoped_to_refreshed_projects() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        store = Store(Path(tmp) / "t.db")
+        store.upsert_repo_meta(
+            "ok::a/b",
+            "ok",
+            "a/b",
+            "/tmp/ok/a/b",
+            "http://review.example.com",
+            "platform/a",
+            "ok",
+        )
+        store.upsert_repo_meta(
+            "failed::c/d",
+            "failed",
+            "c/d",
+            "/tmp/failed/c/d",
+            "http://review.example.com",
+            "platform/c",
+            "ok",
+        )
+        store.subscribe("alice", "failed::c/d")
+
+        store.remove_missing_repos(set(), {"ok"})
+
+        assert store.get_repo_row("ok::a/b") is None
+        assert store.get_repo_row("failed::c/d") is not None
+        assert "failed::c/d" in store.list_subscribed_keys("alice")
+        store.close()
+
+
 def test_resolve_database_path_default() -> None:
     assert resolve_database_path("").name == "gitmail.db"
     assert resolve_database_path("  ").name == "gitmail.db"

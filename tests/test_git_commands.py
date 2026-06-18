@@ -5,7 +5,14 @@ from pathlib import Path
 
 import pytest
 
-from app_main.git.commands import GitError, read_head_commit, resolve_upstream_ref, run_git
+from app_main.git.commands import (
+    GitError,
+    UpstreamRefError,
+    _collect_upstream_ref_attempts,
+    read_head_commit,
+    resolve_upstream_ref,
+    run_git,
+)
 
 
 def _init_bare_remote(tmp_path: Path, name: str = "origin.git") -> Path:
@@ -72,8 +79,9 @@ def test_resolve_upstream_uses_manifest_upstream_without_origin_head(tmp_path: P
     remote = _init_bare_remote(tmp_path)
     repo = _init_local_repo(tmp_path, remote, branch="master", set_upstream=False)
     _strip_origin_head(repo)
-    ref = resolve_upstream_ref(repo, remote="origin", upstream="master")
+    ref, index = resolve_upstream_ref(repo, remote="origin", upstream="master")
     assert ref in {"origin/master", "refs/remotes/origin/master"}
+    assert index == 0
 
 
 def test_resolve_upstream_prefers_manifest_over_local_tracking(tmp_path: Path) -> None:
@@ -99,14 +107,15 @@ def test_resolve_upstream_prefers_manifest_over_local_tracking(tmp_path: Path) -
         check=True,
         capture_output=True,
     )
-    ref = resolve_upstream_ref(repo, remote="origin", upstream="master")
+    ref, index = resolve_upstream_ref(repo, remote="origin", upstream="master")
     assert ref in {"origin/master", "refs/remotes/origin/master"}
+    assert index == 0
 
 
 def test_resolve_upstream_failure_lists_attempts(tmp_path: Path) -> None:
     repo = tmp_path / "bare-local"
     subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
-    with pytest.raises(GitError) as excinfo:
+    with pytest.raises(UpstreamRefError) as excinfo:
         resolve_upstream_ref(repo, remote="origin", upstream="missing-branch")
     message = str(excinfo.value)
     assert "无法解析 Gerrit 远端跟踪引用" in message
@@ -119,7 +128,7 @@ def test_read_head_commit_with_manifest_upstream(tmp_path: Path) -> None:
     remote = _init_bare_remote(tmp_path)
     repo = _init_local_repo(tmp_path, remote, branch="main", set_upstream=False)
     _strip_origin_head(repo)
-    commit_hash, commit_time, subject, author = read_head_commit(
+    commit_hash, commit_time, subject, author, index = read_head_commit(
         repo,
         remote="origin",
         upstream="main",
@@ -128,3 +137,48 @@ def test_read_head_commit_with_manifest_upstream(tmp_path: Path) -> None:
     assert commit_time > 0
     assert subject == "init"
     assert author == "t"
+    assert index == 0
+
+
+def test_resolve_upstream_sticky_start_index(tmp_path: Path) -> None:
+    remote = _init_bare_remote(tmp_path)
+    repo = _init_local_repo(tmp_path, remote, branch="main", set_upstream=True)
+    _strip_origin_head(repo)
+
+    strategies = _collect_upstream_ref_attempts(repo, remote="origin", upstream="missing-branch")
+    fallback_index = next(
+        index
+        for index, attempt in enumerate(strategies)
+        if attempt.label.startswith("Gerrit 常见远端分支 refs/remotes/origin/main")
+    )
+
+    ref, index = resolve_upstream_ref(
+        repo,
+        remote="origin",
+        upstream="missing-branch",
+        start_index=fallback_index,
+    )
+    assert ref in {"origin/main", "refs/remotes/origin/main"}
+    assert index == fallback_index
+
+
+def test_resolve_upstream_wraps_after_start_index(tmp_path: Path) -> None:
+    remote = _init_bare_remote(tmp_path)
+    repo = _init_local_repo(tmp_path, remote, branch="master", set_upstream=False)
+    _strip_origin_head(repo)
+
+    strategies = _collect_upstream_ref_attempts(repo, remote="origin", upstream="missing-branch")
+    master_index = next(
+        index
+        for index, attempt in enumerate(strategies)
+        if attempt.label.startswith("Gerrit 常见远端分支 refs/remotes/origin/master")
+    )
+
+    ref, index = resolve_upstream_ref(
+        repo,
+        remote="origin",
+        upstream="missing-branch",
+        start_index=master_index,
+    )
+    assert ref in {"origin/master", "refs/remotes/origin/master"}
+    assert index == master_index
