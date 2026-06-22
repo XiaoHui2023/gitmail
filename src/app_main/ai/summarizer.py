@@ -43,6 +43,14 @@ def _truncate(text: str, limit: int) -> str:
     return text[: limit - 20] + "\n\n…（内容已截断）"
 
 
+def chat_completions_url(settings: AiSettings) -> str:
+    return settings.api_url.rstrip("/") + "/chat/completions"
+
+
+def describe_ai_endpoint(settings: AiSettings) -> str:
+    return f"url={chat_completions_url(settings)} model={settings.model}"
+
+
 def build_user_message(
     project_name: str,
     repo_path: str,
@@ -72,7 +80,8 @@ def _post_chat_completion(
     timeout_seconds: float,
     max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> str:
-    url = settings.api_url.rstrip("/") + "/chat/completions"
+    url = chat_completions_url(settings)
+    endpoint = describe_ai_endpoint(settings)
     payload = {
         "model": settings.model,
         "messages": [
@@ -97,21 +106,31 @@ def _post_chat_completion(
             raw = response.read().decode("utf-8")
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:500]
-        raise AiSummaryError(f"HTTP {exc.code}: {detail}") from exc
+        message = f"HTTP {exc.code}: {detail} ({endpoint})"
+        logger.warning("AI 请求失败: %s", message)
+        raise AiSummaryError(message) from exc
     except urllib.error.URLError as exc:
-        raise AiSummaryError(str(exc.reason)) from exc
+        message = f"{exc.reason} ({endpoint})"
+        logger.warning("AI 请求失败: %s", message)
+        raise AiSummaryError(message) from exc
     except TimeoutError as exc:
-        raise AiSummaryError("请求超时") from exc
+        message = f"请求超时 ({endpoint})"
+        logger.warning("AI 请求失败: %s", message)
+        raise AiSummaryError(message) from exc
 
     try:
         data = json.loads(raw)
         content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
-        raise AiSummaryError(f"响应格式异常: {raw[:200]}") from exc
+        message = f"响应格式异常: {raw[:200]} ({endpoint})"
+        logger.warning("AI 请求失败: %s", message)
+        raise AiSummaryError(message) from exc
 
     text = str(content).strip()
     if not text:
-        raise AiSummaryError("模型返回空内容")
+        message = f"模型返回空内容 ({endpoint})"
+        logger.warning("AI 请求失败: %s", message)
+        raise AiSummaryError(message) from exc
     return text
 
 
@@ -132,6 +151,7 @@ def ping_ai_api(
 
 def _log_ai_exchange(
     *,
+    settings: AiSettings,
     project_name: str,
     repo_path: str,
     system_prompt: str,
@@ -139,7 +159,12 @@ def _log_ai_exchange(
     response: str | None = None,
     error: str | None = None,
 ) -> None:
-    chat_logger.info("===== %s > %s =====", project_name, repo_path)
+    chat_logger.info(
+        "===== %s > %s (%s) =====",
+        project_name,
+        repo_path,
+        describe_ai_endpoint(settings),
+    )
     chat_logger.info("--- system ---\n%s", system_prompt)
     chat_logger.info("--- user ---\n%s", user_message)
     if response is not None:
@@ -163,6 +188,7 @@ def summarize_repo_update(
         return AiSummaryResult(text=None, status="skipped")
 
     user_message = build_user_message(project_name, repo_path, commits, diff)
+    endpoint = describe_ai_endpoint(settings)
     last_error: Exception | None = None
 
     for attempt in range(max_retries):
@@ -174,6 +200,7 @@ def summarize_repo_update(
                 timeout_seconds=timeout_seconds,
             )
             _log_ai_exchange(
+                settings=settings,
                 project_name=project_name,
                 repo_path=repo_path,
                 system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
@@ -184,6 +211,7 @@ def summarize_repo_update(
         except AiSummaryError as exc:
             last_error = exc
             _log_ai_exchange(
+                settings=settings,
                 project_name=project_name,
                 repo_path=repo_path,
                 system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
@@ -191,16 +219,18 @@ def summarize_repo_update(
                 error=str(exc),
             )
             logger.warning(
-                "AI 总结失败 (%s/%s) %s > %s: %s",
+                "AI 总结失败 (%s/%s) %s > %s (%s): %s",
                 attempt + 1,
                 max_retries,
                 project_name,
                 repo_path,
+                endpoint,
                 exc,
             )
         except Exception as exc:
             last_error = exc
             _log_ai_exchange(
+                settings=settings,
                 project_name=project_name,
                 repo_path=repo_path,
                 system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
@@ -208,11 +238,12 @@ def summarize_repo_update(
                 error=str(exc),
             )
             logger.warning(
-                "AI 总结异常 (%s/%s) %s > %s: %s",
+                "AI 总结异常 (%s/%s) %s > %s (%s): %s",
                 attempt + 1,
                 max_retries,
                 project_name,
                 repo_path,
+                endpoint,
                 exc,
             )
         if attempt + 1 < max_retries:
@@ -220,9 +251,10 @@ def summarize_repo_update(
             time.sleep(delay)
 
     logger.warning(
-        "AI 总结放弃 %s > %s: %s",
+        "AI 总结放弃 %s > %s (%s): %s",
         project_name,
         repo_path,
+        endpoint,
         last_error,
     )
     return AiSummaryResult(text=None, status="failed")

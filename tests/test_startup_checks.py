@@ -67,6 +67,37 @@ def test_startup_checks_skips_when_not_configured() -> None:
     assert ai.enabled
 
 
+def test_startup_checks_skips_when_disabled() -> None:
+    smtp = OperationalSmtp(
+        SmtpSettings(
+            SMTP_HOST="smtp.test",
+            SMTP_USER="u@test.com",
+            SMTP_PASSWORD="secret",
+            SMTP_STARTUP_CHECK=False,
+        )
+    )
+    ai = OperationalAi(
+        AiSettings(
+            AI_API_URL="https://example.com/v1",
+            AI_API_KEY="key",
+            AI_MODEL="m",
+            AI_STARTUP_CHECK=False,
+        )
+    )
+
+    with patch("app_main.startup_checks.send_startup_test_email") as send_mock, patch(
+        "app_main.startup_checks.ping_ai_api"
+    ) as ai_mock:
+        run_startup_checks(smtp, ai)
+
+    send_mock.assert_not_called()
+    ai_mock.assert_not_called()
+    assert smtp.enabled
+    assert ai.enabled
+    assert smtp.configured
+    assert ai.configured
+
+
 def test_build_smtp_status_shows_init_failure() -> None:
     smtp = OperationalSmtp(
         SmtpSettings(
@@ -96,6 +127,20 @@ def test_build_ai_status_shows_init_failure() -> None:
     status = build_ai_status(ai)
     assert not status.enabled
     assert "HTTP 401" in status.hint
+
+
+def test_build_ai_status_shows_startup_check_disabled() -> None:
+    ai = OperationalAi(
+        AiSettings(
+            AI_API_URL="https://example.com/v1",
+            AI_API_KEY="key",
+            AI_MODEL="m",
+            AI_STARTUP_CHECK=False,
+        )
+    )
+    status = build_ai_status(ai)
+    assert status.enabled
+    assert "AI_STARTUP_CHECK=false" in status.hint
 
 
 def test_operational_smtp_delegates_settings_fields() -> None:

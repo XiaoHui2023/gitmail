@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,8 +9,10 @@ import pytest
 from app_main.ai.summarizer import (
     AiSummaryError,
     build_user_message,
+    describe_ai_endpoint,
     ping_ai_api,
     summarize_repo_update,
+    _post_chat_completion,
 )
 from app_main.env_settings import AiSettings
 from app_main.feature_runtime import OperationalAi
@@ -79,6 +82,33 @@ def test_summarize_success() -> None:
         )
     assert result.status == "ready"
     assert result.text == "更新了登录逻辑。"
+
+
+def test_post_chat_completion_error_includes_endpoint() -> None:
+    ai = AiSettings(
+        AI_API_URL="https://example.com/v1",
+        AI_API_KEY="key",
+        AI_MODEL="test-model",
+    )
+    endpoint = describe_ai_endpoint(ai)
+
+    with patch(
+        "app_main.ai.summarizer.urllib.request.urlopen",
+        side_effect=urllib.error.HTTPError(
+            "https://example.com/v1/chat/completions",
+            401,
+            "Unauthorized",
+            {},
+            None,
+        ),
+    ):
+        with pytest.raises(AiSummaryError, match=endpoint):
+            _post_chat_completion(
+                ai,
+                system_prompt="sys",
+                user_message="user",
+                timeout_seconds=1,
+            )
 
 
 def test_summarize_retries_then_fails() -> None:

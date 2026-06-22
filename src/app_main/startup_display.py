@@ -44,11 +44,15 @@ def build_smtp_status(smtp: OperationalSmtp) -> FeatureStatus:
         detail += f" · 发件人 {smtp.smtp_from}"
     else:
         detail += f" · 发件人 {smtp.smtp_user}"
+    if smtp.startup_check:
+        hint = f"已向 {smtp.smtp_user} 发送自检邮件"
+    else:
+        hint = "启动自检已关闭（SMTP_STARTUP_CHECK=false）"
     return FeatureStatus(
         "邮件通知",
         True,
         detail,
-        f"已向 {smtp.smtp_user} 发送自检邮件",
+        hint,
     )
 
 
@@ -69,11 +73,16 @@ def build_ai_status(ai: OperationalAi) -> FeatureStatus:
             ai.init_error or "未知错误",
             status_style="status.warn",
         )
+    hint = (
+        "接口连通性自检通过"
+        if ai.startup_check
+        else "启动自检已关闭（AI_STARTUP_CHECK=false）"
+    )
     return FeatureStatus(
         "AI 总结",
         True,
         f"{ai.model} @ {ai.api_url}",
-        "接口连通性自检通过",
+        hint,
     )
 
 
