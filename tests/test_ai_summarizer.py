@@ -29,6 +29,14 @@ def test_build_user_message_includes_commits_and_diff() -> None:
     assert "alice" in text
     assert "fix login" in text
     assert "diff content" in text
+    assert "全部关键变更" in text
+
+
+def test_system_prompt_requires_completeness() -> None:
+    from app_main.ai.prompts import COMMIT_UPDATE_SYSTEM_PROMPT
+
+    assert "不得遗漏" in COMMIT_UPDATE_SYSTEM_PROMPT
+    assert "自检" in COMMIT_UPDATE_SYSTEM_PROMPT
 
 
 def test_summarize_skipped_when_not_configured() -> None:

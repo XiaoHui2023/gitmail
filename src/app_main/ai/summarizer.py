@@ -7,17 +7,18 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
-from app_main.ai.prompts import COMMIT_UPDATE_SYSTEM_PROMPT
+from app_main.ai.prompts import COMMIT_UPDATE_SYSTEM_PROMPT, USER_MESSAGE_COMPLETENESS_FOOTER
 from app_main.env_settings import AiSettings
 from app_main.models.repo import CommitInfo
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_TIMEOUT_SECONDS = 60
+DEFAULT_TIMEOUT_SECONDS = 90
 DEFAULT_MAX_RETRIES = 3
 DEFAULT_RETRY_BASE_SECONDS = 2.0
-MAX_DIFF_CHARS = 12_000
-MAX_USER_CHARS = 16_000
+MAX_DIFF_CHARS = 32_000
+MAX_USER_CHARS = 36_000
+DEFAULT_MAX_TOKENS = 2048
 
 
 class AiSummaryError(RuntimeError):
@@ -52,7 +53,7 @@ def build_user_message(
         lines.append(
             f"- {commit.hash[:12]} | {commit.author} | {commit.subject}"
         )
-    lines.extend(["", "Diff:", _truncate(diff, MAX_DIFF_CHARS)])
+    lines.extend(["", "Diff:", _truncate(diff, MAX_DIFF_CHARS), "", USER_MESSAGE_COMPLETENESS_FOOTER.rstrip()])
     message = "\n".join(lines)
     return _truncate(message, MAX_USER_CHARS)
 
@@ -71,7 +72,8 @@ def _post_chat_completion(
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_message},
         ],
-        "temperature": 0.2,
+        "temperature": 0.1,
+        "max_tokens": DEFAULT_MAX_TOKENS,
     }
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(

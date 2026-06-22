@@ -264,7 +264,7 @@ def read_commit_diff(
     old_hash: str,
     new_hash: str,
     *,
-    max_bytes: int = 200_000,
+    max_bytes: int = 400_000,
 ) -> str:
     """读取 old..new 区间的 unified diff；失败或空变更时返回空字符串。"""
     if not old_hash or old_hash == new_hash:
