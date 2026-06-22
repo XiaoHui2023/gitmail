@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import EllipsisTooltip from "./EllipsisTooltip.jsx";
 
 function formatAbsolute(ts) {
   if (!ts) return "—";
@@ -60,16 +61,25 @@ export function CommitTimeAge({ timestamp }) {
 }
 
 export function RepoPath({ projectName, repoPath }) {
+  const path = repoPath || "";
+  const fullText = projectName ? `${projectName} > ${path}` : path || "—";
+
   return (
-    <span className="repo-path">
-      {projectName}
-      <span className="sep">&gt;</span>
-      {repoPath.split("/").map((part, idx, arr) => (
-        <span key={`${part}-${idx}`}>
-          {part}
-          {idx < arr.length - 1 ? <span className="sep">&gt;</span> : null}
-        </span>
-      ))}
-    </span>
+    <EllipsisTooltip text={fullText} className="repo-path-tooltip">
+      <span className="repo-path">
+        {projectName ? (
+          <>
+            {projectName}
+            <span className="sep">&gt;</span>
+          </>
+        ) : null}
+        {path.split("/").map((part, idx, arr) => (
+          <span key={`${part}-${idx}`}>
+            {part}
+            {idx < arr.length - 1 ? <span className="sep">&gt;</span> : null}
+          </span>
+        ))}
+      </span>
+    </EllipsisTooltip>
   );
 }

@@ -1,10 +1,12 @@
 import { useId, useRef, useState } from "react";
 
 /**
- * 单行省略 + 悬停显示完整内容的提示框。
+ * 单行省略 + 悬停/聚焦显示完整内容的提示框。
+ * 可传 text，或 children 作为可见内容（此时用 text 作为提示全文）。
  */
 export default function EllipsisTooltip({
   text,
+  children,
   className = "",
   variant = "default",
 }) {
@@ -14,7 +16,10 @@ export default function EllipsisTooltip({
   const [overflow, setOverflow] = useState(false);
   const [coords, setCoords] = useState({ top: 0, left: 0 });
 
-  const display = text || "—";
+  const tooltipText =
+    text ??
+    (typeof children === "string" || typeof children === "number" ? String(children) : "");
+  const display = children ?? text ?? "—";
 
   function refreshOverflow() {
     const el = cellRef.current;
@@ -40,7 +45,8 @@ export default function EllipsisTooltip({
     setOpen(false);
   }
 
-  const showPopup = open && (overflow || variant === "ai") && display !== "—";
+  const popupBody = tooltipText || (typeof display === "string" ? display : "");
+  const showPopup = open && (overflow || variant === "ai") && popupBody && popupBody !== "—";
 
   return (
     <span
@@ -65,7 +71,7 @@ export default function EllipsisTooltip({
           className="ellipsis-tooltip-popup"
           style={{ top: coords.top, left: coords.left }}
         >
-          {display}
+          {popupBody}
         </span>
       ) : null}
     </span>

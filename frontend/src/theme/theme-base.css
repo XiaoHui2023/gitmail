@@ -222,6 +222,7 @@ a.icon-btn:hover {
   padding: 0.65rem 0.5rem;
   border-bottom: 1px solid var(--color-border);
   vertical-align: middle;
+  overflow: hidden;
 }
 
 .repo-table th {
@@ -258,18 +259,23 @@ a.icon-btn:hover {
   line-height: 1;
 }
 
-.repo-path {
+.repo-path-cell,
+.commit-subject-cell {
+  min-width: 0;
+  max-width: 0;
+}
+
+.repo-path-tooltip {
   font-weight: 600;
+}
+
+.repo-path {
+  font-weight: inherit;
 }
 
 .repo-path .sep {
   margin: 0 0.35rem;
   color: var(--color-fg-muted);
-}
-
-.commit-subject-cell {
-  min-width: 0;
-  max-width: 0;
 }
 
 .commit-subject {

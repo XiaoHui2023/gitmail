@@ -181,7 +181,7 @@ export default function RepoList({
           <tbody>
             {sortedItems.map((repo) => (
               <tr key={repo.repo_key}>
-                <td>
+                <td className="repo-path-cell">
                   <RepoPath projectName={repo.project_name} repoPath={repo.repo_path} />
                 </td>
                 <td className="commit-subject-cell">
