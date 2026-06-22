@@ -14,7 +14,7 @@ def run_startup_checks(smtp: OperationalSmtp, ai: OperationalAi) -> None:
     if smtp.settings_filled:
         if not smtp.startup_check:
             logger.info(
-                "SMTP 启动自检已跳过（SMTP_STARTUP_CHECK=false），将使用 %s:%s",
+                "SMTP 启动自检已跳过（config.yaml smtp_startup_check=false），将使用 %s:%s",
                 smtp.smtp_host,
                 smtp.smtp_port,
             )
@@ -36,7 +36,7 @@ def run_startup_checks(smtp: OperationalSmtp, ai: OperationalAi) -> None:
     if ai.settings_filled:
         if not ai.startup_check:
             logger.info(
-                "AI 启动自检已跳过（AI_STARTUP_CHECK=false），将使用 %s",
+                "AI 启动自检已跳过（config.yaml ai_startup_check=false），将使用 %s",
                 describe_ai_endpoint(ai.settings),
             )
         else:

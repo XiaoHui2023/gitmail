@@ -10,6 +10,7 @@ class OperationalSmtp:
     """SMTP 运行时状态；启动自检失败时 enabled 为 False。"""
 
     settings: SmtpSettings
+    startup_check: bool = True
     enabled: bool = True
     init_error: str | None = None
 
@@ -33,6 +34,7 @@ class OperationalAi:
     """AI 运行时状态；启动自检失败时 enabled 为 False。"""
 
     settings: AiSettings
+    startup_check: bool = True
     enabled: bool = True
     init_error: str | None = None
 

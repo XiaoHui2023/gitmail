@@ -39,6 +39,14 @@ class AppConfig(BaseModel):
     manifest_refresh_seconds: int = Field(default=300, description="清单重读间隔（秒）")
     fetch_concurrency: int = Field(default=16, description="并行 git fetch 上限")
     frontend_poll_seconds: int = Field(default=30, description="建议前端列表刷新间隔（秒）")
+    smtp_startup_check: bool = Field(
+        default=True,
+        description="启动时向 SMTP 账号发送自检邮件；false 则跳过",
+    )
+    ai_startup_check: bool = Field(
+        default=True,
+        description="启动时调用一次最小 AI 对话验证连通性；false 则跳过",
+    )
     trusted_proxy_header: str = Field(default="", description="可信代理 IP 头名，如 X-Forwarded-For")
     ip_whitelist: list[str] = Field(default_factory=lambda: ["127.0.0.1"], description="允许写操作的 IP 模式")
     ip_user_map: dict[str, str] = Field(default_factory=dict, description="IP 到用户名的显式映射")

@@ -73,16 +73,16 @@ def test_startup_checks_skips_when_disabled() -> None:
             SMTP_HOST="smtp.test",
             SMTP_USER="u@test.com",
             SMTP_PASSWORD="secret",
-            SMTP_STARTUP_CHECK=False,
-        )
+        ),
+        startup_check=False,
     )
     ai = OperationalAi(
         AiSettings(
             AI_API_URL="https://example.com/v1",
             AI_API_KEY="key",
             AI_MODEL="m",
-            AI_STARTUP_CHECK=False,
-        )
+        ),
+        startup_check=False,
     )
 
     with patch("app_main.startup_checks.send_startup_test_email") as send_mock, patch(
@@ -135,12 +135,12 @@ def test_build_ai_status_shows_startup_check_disabled() -> None:
             AI_API_URL="https://example.com/v1",
             AI_API_KEY="key",
             AI_MODEL="m",
-            AI_STARTUP_CHECK=False,
-        )
+        ),
+        startup_check=False,
     )
     status = build_ai_status(ai)
     assert status.enabled
-    assert "AI_STARTUP_CHECK=false" in status.hint
+    assert "ai_startup_check=false" in status.hint
 
 
 def test_operational_smtp_delegates_settings_fields() -> None:

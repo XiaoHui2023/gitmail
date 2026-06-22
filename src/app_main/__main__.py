@@ -32,8 +32,8 @@ def main() -> None:
     log_session_dir = create_log_session_dir(config.log_dir)
     setup_logging(log_session_dir)
 
-    smtp = OperationalSmtp(SmtpSettings())
-    ai = OperationalAi(AiSettings())
+    smtp = OperationalSmtp(SmtpSettings(), startup_check=config.smtp_startup_check)
+    ai = OperationalAi(AiSettings(), startup_check=config.ai_startup_check)
     run_startup_checks(smtp, ai)
     print_startup_status(
         config,

@@ -76,8 +76,8 @@ def create_app(
         logger.warning("未找到配置文件 %s，使用空配置", path)
 
     store = Store(resolve_database_path(config.database_path))
-    smtp = smtp or OperationalSmtp(SmtpSettings())
-    ai = ai or OperationalAi(AiSettings())
+    smtp = smtp or OperationalSmtp(SmtpSettings(), startup_check=config.smtp_startup_check)
+    ai = ai or OperationalAi(AiSettings(), startup_check=config.ai_startup_check)
     notifier = Notifier(store, config, smtp)
     webhooks = WebhookDispatcher(store)
     monitor = MonitorService(config, store, notifier, ai, webhooks)

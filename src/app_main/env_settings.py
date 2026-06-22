@@ -19,7 +19,6 @@ class SmtpSettings(BaseSettings):
     smtp_password: str = Field(default="", alias="SMTP_PASSWORD")
     smtp_from: str = Field(default="", alias="SMTP_FROM")
     smtp_use_tls: bool = Field(default=True, alias="SMTP_USE_TLS")
-    startup_check: bool = Field(default=True, alias="SMTP_STARTUP_CHECK")
 
     @property
     def configured(self) -> bool:
@@ -48,7 +47,6 @@ class AiSettings(BaseSettings):
     api_url: str = Field(default="", alias="AI_API_URL")
     api_key: str = Field(default="", alias="AI_API_KEY")
     model: str = Field(default="", alias="AI_MODEL")
-    startup_check: bool = Field(default=True, alias="AI_STARTUP_CHECK")
 
     @property
     def configured(self) -> bool:

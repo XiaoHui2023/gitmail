@@ -47,7 +47,7 @@ def build_smtp_status(smtp: OperationalSmtp) -> FeatureStatus:
     if smtp.startup_check:
         hint = f"已向 {smtp.smtp_user} 发送自检邮件"
     else:
-        hint = "启动自检已关闭（SMTP_STARTUP_CHECK=false）"
+        hint = "启动自检已关闭（config.yaml smtp_startup_check=false）"
     return FeatureStatus(
         "邮件通知",
         True,
@@ -76,7 +76,7 @@ def build_ai_status(ai: OperationalAi) -> FeatureStatus:
     hint = (
         "接口连通性自检通过"
         if ai.startup_check
-        else "启动自检已关闭（AI_STARTUP_CHECK=false）"
+        else "启动自检已关闭（config.yaml ai_startup_check=false）"
     )
     return FeatureStatus(
         "AI 总结",
