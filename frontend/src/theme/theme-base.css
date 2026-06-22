@@ -196,6 +196,26 @@ a.icon-btn:hover {
   table-layout: fixed;
 }
 
+.repo-table th:nth-child(1),
+.repo-table td:nth-child(1) {
+  width: 20%;
+}
+
+.repo-table th:nth-child(2),
+.repo-table td:nth-child(2) {
+  width: 58%;
+}
+
+.repo-table th:nth-child(3),
+.repo-table td:nth-child(3) {
+  width: 14%;
+}
+
+.repo-table th:nth-child(4),
+.repo-table td:nth-child(4) {
+  width: 8%;
+}
+
 .repo-table th,
 .repo-table td {
   text-align: left;
@@ -249,6 +269,7 @@ a.icon-btn:hover {
 
 .commit-subject-cell {
   min-width: 0;
+  max-width: 0;
 }
 
 .commit-subject {
@@ -258,6 +279,71 @@ a.icon-btn:hover {
   white-space: nowrap;
   text-overflow: ellipsis;
   color: var(--color-fg);
+}
+
+.commit-fallback-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.ai-pending-dot {
+  flex: 0 0 auto;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+  opacity: 0.85;
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%,
+  100% {
+    opacity: 0.35;
+    transform: scale(0.9);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.ellipsis-tooltip-wrap {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.ellipsis-tooltip-text {
+  display: block;
+  overflow: hidden;
+  max-width: 100%;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--color-fg);
+}
+
+.ai-summary-text {
+  color: var(--color-fg);
+}
+
+.ellipsis-tooltip-popup {
+  position: fixed;
+  z-index: 1000;
+  max-width: min(28rem, calc(100vw - 2rem));
+  padding: 0.55rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-primary-bg);
+  color: var(--color-fg);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
 }
 
 .time-combined-cell,

@@ -8,11 +8,14 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from app_main.ai.summarizer import AiSummaryResult, summarize_repo_update
+from app_main.env_settings import AiSettings
 from app_main.git.commands import (
     GitError,
     UpstreamRefError,
     enrich_gerrit_base,
     git_fetch,
+    read_commit_diff,
     read_head_commit,
     read_recent_commits,
 )
@@ -40,10 +43,17 @@ class MonitorHealth:
 class MonitorService:
     """后台仓库监控调度。"""
 
-    def __init__(self, config: AppConfig, store: Store, notifier: Notifier) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        store: Store,
+        notifier: Notifier,
+        ai: AiSettings | None = None,
+    ) -> None:
         self._config = config
         self._store = store
         self._notifier = notifier
+        self._ai = ai or AiSettings()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
         self._repos: list[DiscoveredRepo] = []
@@ -227,7 +237,7 @@ class MonitorService:
                 upstream_ref_index,
             )
             if changed and old_hash is not None:
-                self._notifier.on_repo_updated(repo.repo_key, commit_hash, recent)
+                self._schedule_ai_summary(repo, old_hash, commit_hash, recent)
         except GitError as exc:
             fail_count += 1
             delay = min(1800, 30 * (2 ** min(fail_count - 1, 6)))
@@ -262,3 +272,65 @@ class MonitorService:
                 fail_count,
                 time.time() + delay,
             )
+
+    def _schedule_ai_summary(
+        self,
+        repo: DiscoveredRepo,
+        old_hash: str,
+        commit_hash: str,
+        recent: list,
+    ) -> None:
+        def task() -> None:
+            try:
+                result = self._run_ai_summary(repo, old_hash, commit_hash, recent)
+                if not self._store.update_ai_summary(
+                    repo.repo_key,
+                    commit_hash,
+                    result.text,
+                    result.status,
+                ):
+                    return
+                self._notifier.on_repo_updated(
+                    repo.repo_key,
+                    commit_hash,
+                    recent,
+                    result.text,
+                )
+            except Exception as exc:
+                logger.exception(
+                    "AI 总结后台任务异常 %s: %s",
+                    repo.repo_key,
+                    exc,
+                )
+                if self._store.update_ai_summary(
+                    repo.repo_key, commit_hash, None, "failed"
+                ):
+                    self._notifier.on_repo_updated(
+                        repo.repo_key, commit_hash, recent, None
+                    )
+
+        threading.Thread(
+            target=task,
+            name=f"gitmail-ai-{repo.repo_key}",
+            daemon=True,
+        ).start()
+
+    def _run_ai_summary(
+        self,
+        repo: DiscoveredRepo,
+        old_hash: str,
+        commit_hash: str,
+        recent: list,
+    ):
+        if not self._ai.configured:
+            return AiSummaryResult(text=None, status="skipped")
+
+        repo_path = Path(repo.local_path)
+        diff = read_commit_diff(repo_path, old_hash, commit_hash)
+        return summarize_repo_update(
+            self._ai,
+            project_name=repo.project_name,
+            repo_path=repo.repo_path,
+            commits=recent,
+            diff=diff,
+        )

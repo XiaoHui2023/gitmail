@@ -47,6 +47,8 @@ def _serialize_snapshot(store, row, user: ResolvedUser | None) -> dict:
             }
             for c in snap.recent_commits
         ],
+        "ai_summary": snap.ai_summary,
+        "ai_summary_status": snap.ai_summary_status,
     }
 
 

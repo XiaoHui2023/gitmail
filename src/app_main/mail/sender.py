@@ -14,13 +14,14 @@ def send_repo_update_email(
     to_addr: str,
     repo: RepoSnapshot,
     commits: list[CommitInfo],
+    ai_summary: str | None = None,
 ) -> None:
     """向单个收件人发送仓库更新邮件。"""
     if not smtp.configured:
         return
     subject = f"[gitmail] {repo.project_name} > {repo.repo_path} 有更新"
-    text_body = _build_text_body(repo, commits)
-    html_body = _build_html_body(repo, commits)
+    text_body = _build_text_body(repo, commits, ai_summary)
+    html_body = _build_html_body(repo, commits, ai_summary)
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = smtp.smtp_from or smtp.smtp_user
@@ -34,7 +35,11 @@ def send_repo_update_email(
         client.sendmail(msg["From"], [to_addr], msg.as_string())
 
 
-def _build_text_body(repo: RepoSnapshot, commits: list[CommitInfo]) -> str:
+def _build_text_body(
+    repo: RepoSnapshot,
+    commits: list[CommitInfo],
+    ai_summary: str | None = None,
+) -> str:
     lines = [
         f"项目: {repo.project_name}",
         f"仓库: {repo.repo_path}",
@@ -46,12 +51,18 @@ def _build_text_body(repo: RepoSnapshot, commits: list[CommitInfo]) -> str:
         lines.append(f"- {commit.hash[:12]} {commit.author} {commit.subject}")
         if urls.commit_url:
             lines.append(f"  {urls.commit_url}")
+    if ai_summary:
+        lines.extend(["", "AI 总结:", ai_summary])
     if repo.gerrit_project_url:
         lines.extend(["", f"Gerrit 项目页: {repo.gerrit_project_url}"])
     return "\n".join(lines)
 
 
-def _build_html_body(repo: RepoSnapshot, commits: list[CommitInfo]) -> str:
+def _build_html_body(
+    repo: RepoSnapshot,
+    commits: list[CommitInfo],
+    ai_summary: str | None = None,
+) -> str:
     items = []
     for commit in commits:
         urls = build_gerrit_urls(repo.gerrit_base, repo.gerrit_project, commit.hash)
@@ -64,7 +75,15 @@ def _build_html_body(repo: RepoSnapshot, commits: list[CommitInfo]) -> str:
     project_link = ""
     if repo.gerrit_project_url:
         project_link = f'<p><a href="{repo.gerrit_project_url}">Gerrit 项目页</a></p>'
+    summary_block = ""
+    if ai_summary:
+        escaped = (
+            ai_summary.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
+        summary_block = f"<p><strong>AI 总结</strong></p><p>{escaped}</p>"
     return (
         f"<p><strong>{repo.project_name}</strong> &gt; {repo.repo_path}</p>"
-        f"<ul>{''.join(items)}</ul>{project_link}"
+        f"<ul>{''.join(items)}</ul>{summary_block}{project_link}"
     )

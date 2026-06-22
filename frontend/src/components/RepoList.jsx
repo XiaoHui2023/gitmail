@@ -7,6 +7,7 @@ import {
   unsubscribeRepo,
 } from "../api.js";
 import { CommitTimeAge, RepoPath } from "./RelativeTime.jsx";
+import { RecentCommitCell } from "./RecentCommitCell.jsx";
 
 function ExternalLinkIcon() {
   return (
@@ -184,9 +185,7 @@ export default function RepoList({
                   <RepoPath projectName={repo.project_name} repoPath={repo.repo_path} />
                 </td>
                 <td className="commit-subject-cell">
-                  <span className="commit-subject" title={repo.last_commit_subject || ""}>
-                    {repo.last_commit_subject || "—"}
-                  </span>
+                  <RecentCommitCell repo={repo} />
                 </td>
                 <td className="time-combined-cell">
                   <CommitTimeAge timestamp={repo.last_commit_time} />

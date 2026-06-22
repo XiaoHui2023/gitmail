@@ -24,6 +24,7 @@ class Notifier:
         repo_key: str,
         commit_hash: str,
         recent_commits: list[CommitInfo],
+        ai_summary: str | None = None,
     ) -> None:
         if self._store.is_notified(repo_key, commit_hash):
             return
@@ -42,7 +43,9 @@ class Notifier:
                 continue
             to_addr = f"{username}@{self._config.email_domain}"
             try:
-                send_repo_update_email(self._smtp, to_addr, snapshot, recent_commits)
+                send_repo_update_email(
+                    self._smtp, to_addr, snapshot, recent_commits, ai_summary
+                )
             except Exception as exc:
                 logger.warning("邮件发送失败 %s %s: %s", username, repo_key, exc)
         self._store.mark_notified(repo_key, commit_hash)

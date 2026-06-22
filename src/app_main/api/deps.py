@@ -17,6 +17,7 @@ class AppState:
     store: object
     monitor: object
     smtp: object
+    ai: object | None = None
 
 
 def get_app_state(request: Request) -> AppState:

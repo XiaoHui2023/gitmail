@@ -55,3 +55,6 @@ class RepoSnapshot:
   error_message: str | None
   subscribed: bool = False
   recent_commits: list[CommitInfo] = field(default_factory=list)
+  ai_summary: str | None = None
+  ai_summary_status: str | None = None
+  ai_summary_commit_hash: str | None = None

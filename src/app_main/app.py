@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from app_main.api import router as api_router
 from app_main.api.deps import AppState
 from app_main.config_loader import load_config, resolve_config_path
-from app_main.env_settings import SmtpSettings
+from app_main.env_settings import AiSettings, SmtpSettings
 from app_main.mail.notifier import Notifier
 from app_main.monitor.service import MonitorService
 from app_main.paths import resolve_database_path, resolve_frontend_dist
@@ -70,9 +70,10 @@ def create_app(config_path: Path | None = None) -> FastAPI:
 
     store = Store(resolve_database_path(config.database_path))
     smtp = SmtpSettings()
+    ai = AiSettings()
     notifier = Notifier(store, config, smtp)
-    monitor = MonitorService(config, store, notifier)
-    ctx = AppState(config=config, store=store, monitor=monitor, smtp=smtp)
+    monitor = MonitorService(config, store, notifier, ai)
+    ctx = AppState(config=config, store=store, monitor=monitor, smtp=smtp, ai=ai)
 
     prefix = config.public_base_path.strip().rstrip("/")
     inner = _build_inner_app(ctx)

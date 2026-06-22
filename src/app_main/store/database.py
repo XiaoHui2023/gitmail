@@ -67,6 +67,9 @@ class Store:
             )
             self._ensure_column("repo_state", "gerrit_change_number", "INTEGER")
             self._ensure_column("repo_state", "upstream_ref_index", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column("repo_state", "ai_summary", "TEXT")
+            self._ensure_column("repo_state", "ai_summary_status", "TEXT")
+            self._ensure_column("repo_state", "ai_summary_commit_hash", "TEXT")
             self._conn.commit()
 
     def _ensure_column(self, table: str, column: str, definition: str) -> None:
@@ -144,8 +147,17 @@ class Store:
                     for c in recent_commits
                 ]
             )
-            self._conn.execute(
+            ai_reset_sql = ""
+            ai_params: list[object] = []
+            if changed:
+                ai_reset_sql = """
+                    ai_summary=NULL,
+                    ai_summary_status='pending',
+                    ai_summary_commit_hash=?,
                 """
+                ai_params.append(commit_hash)
+            self._conn.execute(
+                f"""
                 UPDATE repo_state SET
                     status='ok',
                     last_commit_hash=?,
@@ -158,6 +170,7 @@ class Store:
                     fail_count=0,
                     next_retry_at=0,
                     upstream_ref_index=?,
+                    {ai_reset_sql}
                     updated_at=?
                 WHERE repo_key=?
                 """,
@@ -169,12 +182,42 @@ class Store:
                     gerrit_change_number,
                     commits_json,
                     upstream_ref_index,
+                    *ai_params,
                     time.time(),
                     repo_key,
                 ),
             )
             self._conn.commit()
             return changed
+
+    def update_ai_summary(
+        self,
+        repo_key: str,
+        commit_hash: str,
+        summary: str | None,
+        status: str,
+    ) -> bool:
+        """写入 AI 总结；仅当当前提交哈希仍匹配时更新。返回是否写入成功。"""
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT last_commit_hash FROM repo_state WHERE repo_key = ?",
+                (repo_key,),
+            ).fetchone()
+            if row is None or row["last_commit_hash"] != commit_hash:
+                return False
+            self._conn.execute(
+                """
+                UPDATE repo_state SET
+                    ai_summary=?,
+                    ai_summary_status=?,
+                    ai_summary_commit_hash=?,
+                    updated_at=?
+                WHERE repo_key=?
+                """,
+                (summary, status, commit_hash, time.time(), repo_key),
+            )
+            self._conn.commit()
+            return True
 
     def update_repo_failure(
         self,
@@ -352,6 +395,9 @@ class Store:
             error_message=row["error_message"],
             subscribed=subscribed,
             recent_commits=recent,
+            ai_summary=row["ai_summary"],
+            ai_summary_status=row["ai_summary_status"],
+            ai_summary_commit_hash=row["ai_summary_commit_hash"],
         )
 
     def close(self) -> None:

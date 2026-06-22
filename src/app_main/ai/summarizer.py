@@ -1,0 +1,165 @@
+from __future__ import annotations
+
+import json
+import logging
+import time
+import urllib.error
+import urllib.request
+from dataclasses import dataclass
+
+from app_main.ai.prompts import COMMIT_UPDATE_SYSTEM_PROMPT
+from app_main.env_settings import AiSettings
+from app_main.models.repo import CommitInfo
+
+logger = logging.getLogger(__name__)
+
+DEFAULT_TIMEOUT_SECONDS = 60
+DEFAULT_MAX_RETRIES = 3
+DEFAULT_RETRY_BASE_SECONDS = 2.0
+MAX_DIFF_CHARS = 12_000
+MAX_USER_CHARS = 16_000
+
+
+class AiSummaryError(RuntimeError):
+    """AI 总结调用失败。"""
+
+
+@dataclass(frozen=True)
+class AiSummaryResult:
+    text: str | None
+    status: str
+
+
+def _truncate(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[: limit - 20] + "\n\n…（内容已截断）"
+
+
+def build_user_message(
+    project_name: str,
+    repo_path: str,
+    commits: list[CommitInfo],
+    diff: str,
+) -> str:
+    lines = [
+        f"项目: {project_name}",
+        f"仓库: {repo_path}",
+        "",
+        "提交列表:",
+    ]
+    for commit in commits:
+        lines.append(
+            f"- {commit.hash[:12]} | {commit.author} | {commit.subject}"
+        )
+    lines.extend(["", "Diff:", _truncate(diff, MAX_DIFF_CHARS)])
+    message = "\n".join(lines)
+    return _truncate(message, MAX_USER_CHARS)
+
+
+def _post_chat_completion(
+    settings: AiSettings,
+    *,
+    system_prompt: str,
+    user_message: str,
+    timeout_seconds: float,
+) -> str:
+    url = settings.api_url.rstrip("/") + "/chat/completions"
+    payload = {
+        "model": settings.model,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message},
+        ],
+        "temperature": 0.2,
+    }
+    body = json.dumps(payload).encode("utf-8")
+    request = urllib.request.Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {settings.api_key}",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+            raw = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", errors="replace")[:500]
+        raise AiSummaryError(f"HTTP {exc.code}: {detail}") from exc
+    except urllib.error.URLError as exc:
+        raise AiSummaryError(str(exc.reason)) from exc
+    except TimeoutError as exc:
+        raise AiSummaryError("请求超时") from exc
+
+    try:
+        data = json.loads(raw)
+        content = data["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        raise AiSummaryError(f"响应格式异常: {raw[:200]}") from exc
+
+    text = str(content).strip()
+    if not text:
+        raise AiSummaryError("模型返回空内容")
+    return text
+
+
+def summarize_repo_update(
+    settings: AiSettings,
+    *,
+    project_name: str,
+    repo_path: str,
+    commits: list[CommitInfo],
+    diff: str,
+    timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+    max_retries: int = DEFAULT_MAX_RETRIES,
+) -> AiSummaryResult:
+    """调用 OpenAI 兼容接口生成更新总结；失败时返回 status=failed。"""
+    if not settings.configured:
+        return AiSummaryResult(text=None, status="skipped")
+
+    user_message = build_user_message(project_name, repo_path, commits, diff)
+    last_error: Exception | None = None
+
+    for attempt in range(max_retries):
+        try:
+            text = _post_chat_completion(
+                settings,
+                system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
+                user_message=user_message,
+                timeout_seconds=timeout_seconds,
+            )
+            return AiSummaryResult(text=text, status="ready")
+        except AiSummaryError as exc:
+            last_error = exc
+            logger.warning(
+                "AI 总结失败 (%s/%s) %s > %s: %s",
+                attempt + 1,
+                max_retries,
+                project_name,
+                repo_path,
+                exc,
+            )
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "AI 总结异常 (%s/%s) %s > %s: %s",
+                attempt + 1,
+                max_retries,
+                project_name,
+                repo_path,
+                exc,
+            )
+        if attempt + 1 < max_retries:
+            delay = DEFAULT_RETRY_BASE_SECONDS * (2**attempt)
+            time.sleep(delay)
+
+    logger.warning(
+        "AI 总结放弃 %s > %s: %s",
+        project_name,
+        repo_path,
+        last_error,
+    )
+    return AiSummaryResult(text=None, status="failed")

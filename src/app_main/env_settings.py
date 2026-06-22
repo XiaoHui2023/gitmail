@@ -23,3 +23,21 @@ class SmtpSettings(BaseSettings):
     @property
     def configured(self) -> bool:
         return bool(self.smtp_host and self.smtp_user and self.smtp_password)
+
+
+class AiSettings(BaseSettings):
+    """OpenAI 兼容 AI 接口参数，来自 .env。"""
+
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
+
+    api_url: str = Field(default="", alias="AI_API_URL")
+    api_key: str = Field(default="", alias="AI_API_KEY")
+    model: str = Field(default="", alias="AI_MODEL")
+
+    @property
+    def configured(self) -> bool:
+        return bool(self.api_url and self.api_key and self.model)

@@ -259,6 +259,33 @@ def read_remote_url(repo_path: Path, remote: str = "origin") -> str | None:
         return None
 
 
+def read_commit_diff(
+    repo_path: Path,
+    old_hash: str,
+    new_hash: str,
+    *,
+    max_bytes: int = 200_000,
+) -> str:
+    """读取 old..new 区间的 unified diff；失败或空变更时返回空字符串。"""
+    if not old_hash or old_hash == new_hash:
+        return ""
+    try:
+        diff = run_git(
+            repo_path,
+            "diff",
+            "--no-color",
+            f"{old_hash}..{new_hash}",
+            timeout=90,
+        )
+    except GitError:
+        return ""
+    if len(diff.encode("utf-8", errors="ignore")) > max_bytes:
+        head = diff[: max_bytes // 2]
+        tail = diff[-max_bytes // 4 :]
+        return f"{head}\n\n…（diff 过长，已截断）\n\n{tail}"
+    return diff
+
+
 def enrich_gerrit_base(repo_path: Path, current: str | None, remote: str = "origin") -> str | None:
     if current:
         return current
