@@ -36,6 +36,7 @@ export default function Layout() {
               全部仓库
             </NavLink>
             <NavLink to="/subscriptions">我的订阅</NavLink>
+            <NavLink to="/webhooks">Webhook</NavLink>
             <NavLink to="/settings">设置</NavLink>
           </nav>
         </aside>

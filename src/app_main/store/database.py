@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import secrets
 import sqlite3
 import threading
 import time
@@ -63,6 +64,30 @@ class Store:
                     notified_at REAL NOT NULL,
                     PRIMARY KEY (repo_key, commit_hash)
                 );
+                CREATE TABLE IF NOT EXISTS user_webhooks (
+                    id TEXT PRIMARY KEY,
+                    username TEXT NOT NULL,
+                    repo_key TEXT NOT NULL,
+                    url TEXT NOT NULL,
+                    label TEXT NOT NULL DEFAULT '',
+                    secret TEXT NOT NULL,
+                    enabled INTEGER NOT NULL DEFAULT 1,
+                    created_at REAL NOT NULL,
+                    updated_at REAL NOT NULL,
+                    last_delivery_at REAL,
+                    last_delivery_ok INTEGER,
+                    last_delivery_error TEXT,
+                    last_delivery_status INTEGER,
+                    UNIQUE (username, repo_key, url)
+                );
+                CREATE TABLE IF NOT EXISTS webhook_delivery_cursor (
+                    webhook_id TEXT NOT NULL,
+                    commit_hash TEXT NOT NULL,
+                    delivered_at REAL NOT NULL,
+                    PRIMARY KEY (webhook_id, commit_hash)
+                );
+                CREATE INDEX IF NOT EXISTS idx_user_webhooks_repo ON user_webhooks(repo_key);
+                CREATE INDEX IF NOT EXISTS idx_user_webhooks_user ON user_webhooks(username);
                 """
             )
             self._ensure_column("repo_state", "gerrit_change_number", "INTEGER")
@@ -286,6 +311,15 @@ class Store:
                     self._conn.execute("DELETE FROM repo_state WHERE repo_key = ?", (key,))
                     self._conn.execute("DELETE FROM subscriptions WHERE repo_key = ?", (key,))
                     self._conn.execute("DELETE FROM notify_cursor WHERE repo_key = ?", (key,))
+                    hook_rows = self._conn.execute(
+                        "SELECT id FROM user_webhooks WHERE repo_key = ?", (key,)
+                    ).fetchall()
+                    for hook in hook_rows:
+                        self._conn.execute(
+                            "DELETE FROM webhook_delivery_cursor WHERE webhook_id = ?",
+                            (hook["id"],),
+                        )
+                    self._conn.execute("DELETE FROM user_webhooks WHERE repo_key = ?", (key,))
             self._conn.commit()
 
     def subscribe(self, username: str, repo_key: str) -> None:
@@ -349,6 +383,187 @@ class Store:
             self._conn.execute(
                 "INSERT OR IGNORE INTO notify_cursor (repo_key, commit_hash, notified_at) VALUES (?, ?, ?)",
                 (repo_key, commit_hash, time.time()),
+            )
+            self._conn.commit()
+
+    def create_webhook(
+        self,
+        username: str,
+        repo_key: str,
+        url: str,
+        label: str,
+        secret: str,
+        enabled: bool,
+    ) -> str:
+        webhook_id = f"wh_{secrets.token_hex(8)}"
+        now = time.time()
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT INTO user_webhooks (
+                    id, username, repo_key, url, label, secret, enabled,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    webhook_id,
+                    username,
+                    repo_key,
+                    url,
+                    label,
+                    secret,
+                    int(enabled),
+                    now,
+                    now,
+                ),
+            )
+            self._conn.commit()
+        return webhook_id
+
+    def list_webhooks(self, username: str) -> list[sqlite3.Row]:
+        with self._lock:
+            return list(
+                self._conn.execute(
+                    """
+                    SELECT * FROM user_webhooks
+                    WHERE username = ?
+                    ORDER BY created_at DESC
+                    """,
+                    (username,),
+                ).fetchall()
+            )
+
+    def get_webhook(self, username: str, webhook_id: str) -> sqlite3.Row | None:
+        with self._lock:
+            return self._conn.execute(
+                "SELECT * FROM user_webhooks WHERE id = ? AND username = ?",
+                (webhook_id, username),
+            ).fetchone()
+
+    def update_webhook(
+        self,
+        username: str,
+        webhook_id: str,
+        *,
+        repo_key: str | None = None,
+        url: str | None = None,
+        label: str | None = None,
+        secret: str | None = None,
+        enabled: bool | None = None,
+    ) -> bool:
+        row = self.get_webhook(username, webhook_id)
+        if row is None:
+            return False
+        new_repo_key = repo_key if repo_key is not None else row["repo_key"]
+        new_url = url if url is not None else row["url"]
+        new_label = label if label is not None else row["label"]
+        new_secret = secret if secret is not None else row["secret"]
+        new_enabled = int(enabled) if enabled is not None else int(row["enabled"])
+        with self._lock:
+            self._conn.execute(
+                """
+                UPDATE user_webhooks SET
+                    repo_key=?,
+                    url=?,
+                    label=?,
+                    secret=?,
+                    enabled=?,
+                    updated_at=?
+                WHERE id=? AND username=?
+                """,
+                (
+                    new_repo_key,
+                    new_url,
+                    new_label,
+                    new_secret,
+                    new_enabled,
+                    time.time(),
+                    webhook_id,
+                    username,
+                ),
+            )
+            self._conn.commit()
+        return True
+
+    def delete_webhook(self, username: str, webhook_id: str) -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                "SELECT id FROM user_webhooks WHERE id = ? AND username = ?",
+                (webhook_id, username),
+            ).fetchone()
+            if row is None:
+                return False
+            self._conn.execute(
+                "DELETE FROM webhook_delivery_cursor WHERE webhook_id = ?",
+                (webhook_id,),
+            )
+            self._conn.execute(
+                "DELETE FROM user_webhooks WHERE id = ? AND username = ?",
+                (webhook_id, username),
+            )
+            self._conn.commit()
+        return True
+
+    def list_enabled_webhooks_for_repo(self, repo_key: str) -> list[sqlite3.Row]:
+        with self._lock:
+            return list(
+                self._conn.execute(
+                    """
+                    SELECT * FROM user_webhooks
+                    WHERE repo_key = ? AND enabled = 1
+                    ORDER BY created_at
+                    """,
+                    (repo_key,),
+                ).fetchall()
+            )
+
+    def is_webhook_delivered(self, webhook_id: str, commit_hash: str) -> bool:
+        with self._lock:
+            row = self._conn.execute(
+                """
+                SELECT 1 FROM webhook_delivery_cursor
+                WHERE webhook_id = ? AND commit_hash = ?
+                """,
+                (webhook_id, commit_hash),
+            ).fetchone()
+            return row is not None
+
+    def mark_webhook_delivered(self, webhook_id: str, commit_hash: str) -> None:
+        with self._lock:
+            self._conn.execute(
+                """
+                INSERT OR IGNORE INTO webhook_delivery_cursor
+                (webhook_id, commit_hash, delivered_at)
+                VALUES (?, ?, ?)
+                """,
+                (webhook_id, commit_hash, time.time()),
+            )
+            self._conn.commit()
+
+    def update_webhook_delivery_status(
+        self,
+        webhook_id: str,
+        ok: bool,
+        status_code: int | None,
+        error: str | None,
+    ) -> None:
+        with self._lock:
+            self._conn.execute(
+                """
+                UPDATE user_webhooks SET
+                    last_delivery_at=?,
+                    last_delivery_ok=?,
+                    last_delivery_error=?,
+                    last_delivery_status=?
+                WHERE id=?
+                """,
+                (
+                    time.time(),
+                    int(ok),
+                    error,
+                    status_code,
+                    webhook_id,
+                ),
             )
             self._conn.commit()
 

@@ -25,6 +25,7 @@ from app_main.manifest.parser import discover_project_repos
 from app_main.models.config import AppConfig
 from app_main.models.repo import DiscoveredRepo
 from app_main.store.database import Store
+from app_main.webhooks.dispatcher import WebhookDispatcher
 
 logger = logging.getLogger(__name__)
 
@@ -49,10 +50,12 @@ class MonitorService:
         store: Store,
         notifier: Notifier,
         ai: AiSettings | None = None,
+        webhooks: WebhookDispatcher | None = None,
     ) -> None:
         self._config = config
         self._store = store
         self._notifier = notifier
+        self._webhooks = webhooks or WebhookDispatcher(store)
         self._ai = ai or AiSettings()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -237,6 +240,22 @@ class MonitorService:
                 upstream_ref_index,
             )
             if changed and old_hash is not None:
+                old_subject = row["last_commit_subject"] if row else None
+                self._webhooks.on_repo_updated(
+                    repo.repo_key,
+                    repo.project_name,
+                    repo.repo_path,
+                    old_hash,
+                    old_subject,
+                    commit_hash,
+                    commit_time,
+                    subject,
+                    author,
+                    recent,
+                    gerrit_base=gerrit_base,
+                    gerrit_project=repo.gerrit_project,
+                    gerrit_change_number=gerrit_change_number,
+                )
                 self._schedule_ai_summary(repo, old_hash, commit_hash, recent)
         except GitError as exc:
             fail_count += 1

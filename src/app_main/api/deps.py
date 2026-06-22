@@ -18,6 +18,7 @@ class AppState:
     monitor: object
     smtp: object
     ai: object | None = None
+    webhooks: object | None = None
 
 
 def get_app_state(request: Request) -> AppState:

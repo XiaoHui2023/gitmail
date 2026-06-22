@@ -67,3 +67,33 @@ export function saveSettings(emailEnabled) {
     body: JSON.stringify({ email_enabled: emailEnabled }),
   });
 }
+
+export function fetchWebhooks() {
+  return request("/webhooks");
+}
+
+export function createWebhook(body) {
+  return request("/webhooks", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateWebhook(id, body) {
+  return request(`/webhooks/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteWebhook(id) {
+  return request(`/webhooks/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function testWebhook(id) {
+  return request(`/webhooks/${encodeURIComponent(id)}/test`, {
+    method: "POST",
+  });
+}
