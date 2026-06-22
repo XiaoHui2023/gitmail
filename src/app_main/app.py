@@ -12,6 +12,7 @@ from app_main.api import router as api_router
 from app_main.api.deps import AppState
 from app_main.config_loader import load_config, resolve_config_path
 from app_main.env_settings import AiSettings, SmtpSettings
+from app_main.feature_runtime import OperationalAi, OperationalSmtp
 from app_main.mail.notifier import Notifier
 from app_main.monitor.service import MonitorService
 from app_main.paths import resolve_database_path, resolve_frontend_dist
@@ -57,7 +58,12 @@ def _build_inner_app(ctx: AppState) -> FastAPI:
     return app
 
 
-def create_app(config_path: Path | None = None) -> FastAPI:
+def create_app(
+    config_path: Path | None = None,
+    *,
+    smtp: OperationalSmtp | None = None,
+    ai: OperationalAi | None = None,
+) -> FastAPI:
     """创建 FastAPI 应用并挂载 API 与前端静态资源。"""
     path = config_path or _config_path or resolve_config_path(None)
     if path.is_file():
@@ -69,8 +75,8 @@ def create_app(config_path: Path | None = None) -> FastAPI:
         logger.warning("未找到配置文件 %s，使用空配置", path)
 
     store = Store(resolve_database_path(config.database_path))
-    smtp = SmtpSettings()
-    ai = AiSettings()
+    smtp = smtp or OperationalSmtp(SmtpSettings())
+    ai = ai or OperationalAi(AiSettings())
     notifier = Notifier(store, config, smtp)
     monitor = MonitorService(config, store, notifier, ai)
     ctx = AppState(config=config, store=store, monitor=monitor, smtp=smtp, ai=ai)

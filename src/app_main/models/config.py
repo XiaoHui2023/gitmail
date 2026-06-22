@@ -28,6 +28,10 @@ class AppConfig(BaseModel):
         default="",
         description="SQLite 数据库文件路径；留空则使用运行目录下 data/gitmail.db",
     )
+    log_dir: str = Field(
+        default="",
+        description="日志根目录；留空则使用运行目录下 logs，按 年-月-日/时-分-秒/ 分文件存储",
+    )
     listen_port: int = Field(default=0, description="监听端口；0 表示由系统分配空闲端口")
     public_base_path: str = Field(default="", description="对外 URL 路径前缀，如 /tools/gitmail")
     allow_anonymous_repo_list: bool = Field(default=True, description="未在白名单时是否允许只读查看全部仓库")

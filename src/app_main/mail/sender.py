@@ -9,6 +9,38 @@ from app_main.manifest.gerrit_urls import build_gerrit_urls
 from app_main.models.repo import CommitInfo, RepoSnapshot
 
 
+def send_plain_email(
+    smtp: SmtpSettings,
+    to_addr: str,
+    subject: str,
+    text_body: str,
+) -> None:
+    """发送纯文本邮件。"""
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = smtp.smtp_from or smtp.smtp_user
+    msg["To"] = to_addr
+    msg.attach(MIMEText(text_body, "plain", "utf-8"))
+    with smtplib.SMTP(smtp.smtp_host, smtp.smtp_port, timeout=60) as client:
+        if smtp.smtp_use_tls:
+            client.starttls()
+        client.login(smtp.smtp_user, smtp.smtp_password)
+        client.sendmail(msg["From"], [to_addr], msg.as_string())
+
+
+def send_startup_test_email(smtp: SmtpSettings) -> None:
+    """向 SMTP 账号自身发送一封启动自检邮件。"""
+    to_addr = smtp.smtp_user.strip()
+    if "@" not in to_addr:
+        raise ValueError(f"SMTP_USER 不是有效邮箱地址: {to_addr}")
+    send_plain_email(
+        smtp,
+        to_addr,
+        "[gitmail] 启动自检",
+        "gitmail 邮件通道启动自检成功。\n\n若收到此邮件，说明 SMTP 配置可用。",
+    )
+
+
 def send_repo_update_email(
     smtp: SmtpSettings,
     to_addr: str,

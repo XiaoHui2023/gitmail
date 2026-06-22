@@ -9,9 +9,11 @@ from dataclasses import dataclass
 
 from app_main.ai.prompts import COMMIT_UPDATE_SYSTEM_PROMPT, USER_MESSAGE_COMPLETENESS_FOOTER
 from app_main.env_settings import AiSettings
+from app_main.logging_setup import AI_CHAT_LOGGER_NAME
 from app_main.models.repo import CommitInfo
 
 logger = logging.getLogger(__name__)
+chat_logger = logging.getLogger(AI_CHAT_LOGGER_NAME)
 
 DEFAULT_TIMEOUT_SECONDS = 90
 DEFAULT_MAX_RETRIES = 3
@@ -19,6 +21,10 @@ DEFAULT_RETRY_BASE_SECONDS = 2.0
 MAX_DIFF_CHARS = 32_000
 MAX_USER_CHARS = 36_000
 DEFAULT_MAX_TOKENS = 2048
+INIT_TEST_SYSTEM_PROMPT = "你是连通性自检助手。只回复 OK，不要输出其它内容。"
+INIT_TEST_USER_MESSAGE = "ping"
+INIT_TEST_MAX_TOKENS = 16
+INIT_TEST_TIMEOUT_SECONDS = 30
 
 
 class AiSummaryError(RuntimeError):
@@ -64,6 +70,7 @@ def _post_chat_completion(
     system_prompt: str,
     user_message: str,
     timeout_seconds: float,
+    max_tokens: int = DEFAULT_MAX_TOKENS,
 ) -> str:
     url = settings.api_url.rstrip("/") + "/chat/completions"
     payload = {
@@ -73,7 +80,7 @@ def _post_chat_completion(
             {"role": "user", "content": user_message},
         ],
         "temperature": 0.1,
-        "max_tokens": DEFAULT_MAX_TOKENS,
+        "max_tokens": max_tokens,
     }
     body = json.dumps(payload).encode("utf-8")
     request = urllib.request.Request(
@@ -108,6 +115,39 @@ def _post_chat_completion(
     return text
 
 
+def ping_ai_api(
+    settings: AiSettings,
+    *,
+    timeout_seconds: float = INIT_TEST_TIMEOUT_SECONDS,
+) -> None:
+    """启动自检：调用一次最小对话，失败时抛出 AiSummaryError。"""
+    _post_chat_completion(
+        settings,
+        system_prompt=INIT_TEST_SYSTEM_PROMPT,
+        user_message=INIT_TEST_USER_MESSAGE,
+        timeout_seconds=timeout_seconds,
+        max_tokens=INIT_TEST_MAX_TOKENS,
+    )
+
+
+def _log_ai_exchange(
+    *,
+    project_name: str,
+    repo_path: str,
+    system_prompt: str,
+    user_message: str,
+    response: str | None = None,
+    error: str | None = None,
+) -> None:
+    chat_logger.info("===== %s > %s =====", project_name, repo_path)
+    chat_logger.info("--- system ---\n%s", system_prompt)
+    chat_logger.info("--- user ---\n%s", user_message)
+    if response is not None:
+        chat_logger.info("--- assistant ---\n%s", response)
+    if error is not None:
+        chat_logger.warning("--- error ---\n%s", error)
+
+
 def summarize_repo_update(
     settings: AiSettings,
     *,
@@ -133,9 +173,23 @@ def summarize_repo_update(
                 user_message=user_message,
                 timeout_seconds=timeout_seconds,
             )
+            _log_ai_exchange(
+                project_name=project_name,
+                repo_path=repo_path,
+                system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
+                user_message=user_message,
+                response=text,
+            )
             return AiSummaryResult(text=text, status="ready")
         except AiSummaryError as exc:
             last_error = exc
+            _log_ai_exchange(
+                project_name=project_name,
+                repo_path=repo_path,
+                system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
+                user_message=user_message,
+                error=str(exc),
+            )
             logger.warning(
                 "AI 总结失败 (%s/%s) %s > %s: %s",
                 attempt + 1,
@@ -146,6 +200,13 @@ def summarize_repo_update(
             )
         except Exception as exc:
             last_error = exc
+            _log_ai_exchange(
+                project_name=project_name,
+                repo_path=repo_path,
+                system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
+                user_message=user_message,
+                error=str(exc),
+            )
             logger.warning(
                 "AI 总结异常 (%s/%s) %s > %s: %s",
                 attempt + 1,

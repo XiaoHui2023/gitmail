@@ -10,6 +10,7 @@ dependencies = [
     "pydantic-settings",
     "pyyaml",
     "python-dotenv",
+    "rich",
 ]
 
 [project.optional-dependencies]

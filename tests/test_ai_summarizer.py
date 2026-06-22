@@ -8,9 +8,11 @@ import pytest
 from app_main.ai.summarizer import (
     AiSummaryError,
     build_user_message,
+    ping_ai_api,
     summarize_repo_update,
 )
 from app_main.env_settings import AiSettings
+from app_main.feature_runtime import OperationalAi
 from app_main.models.repo import CommitInfo
 
 
@@ -100,3 +102,37 @@ def test_summarize_retries_then_fails() -> None:
         )
     assert result.status == "failed"
     assert result.text is None
+
+
+def test_test_ai_connection_calls_api() -> None:
+    ai = AiSettings(
+        AI_API_URL="https://example.com/v1",
+        AI_API_KEY="key",
+        AI_MODEL="test-model",
+    )
+    with patch(
+        "app_main.ai.summarizer._post_chat_completion",
+        return_value="OK",
+    ) as mock_post:
+        ping_ai_api(ai)
+    mock_post.assert_called_once()
+
+
+def test_summarize_skipped_when_operational_disabled() -> None:
+    ai = OperationalAi(
+        AiSettings(
+            AI_API_URL="https://example.com/v1",
+            AI_API_KEY="key",
+            AI_MODEL="test-model",
+        ),
+        enabled=False,
+        init_error="init failed",
+    )
+    result = summarize_repo_update(
+        ai,
+        project_name="p",
+        repo_path="r",
+        commits=[],
+        diff="",
+    )
+    assert result.status == "skipped"
