@@ -15,6 +15,7 @@ from app_main.git.commands import (
     UpstreamRefError,
     enrich_gerrit_base,
     git_fetch,
+    probe_remote_unchanged,
     read_commit_diff,
     read_head_commit,
     read_recent_commits,
@@ -70,6 +71,7 @@ class MonitorService:
         self._last_manifest_refresh = 0.0
         self.health = MonitorHealth()
         self._lock = threading.Lock()
+        self._executor: ThreadPoolExecutor | None = None
 
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
@@ -98,8 +100,25 @@ class MonitorService:
 
     def stop(self) -> None:
         self._stop.set()
+        if self._executor:
+            self._executor.shutdown(wait=False, cancel_futures=True)
+            self._executor = None
         if self._thread:
             self._thread.join(timeout=5)
+
+    def _get_executor(self) -> ThreadPoolExecutor:
+        workers = max(1, self._config.fetch_concurrency)
+        if self._executor is None:
+            self._executor = ThreadPoolExecutor(
+                max_workers=workers,
+                thread_name_prefix="gitmail-fetch",
+            )
+        return self._executor
+
+    def _next_poll_at(self, repo_key: str) -> float:
+        interval = max(30, self._config.poll_interval_seconds)
+        slot = (hash(repo_key) & 0x7FFFFFFF) % interval
+        return time.time() + interval + slot * 0.2 + random.uniform(0, 3)
 
     def list_repos(self) -> list[DiscoveredRepo]:
         with self._lock:
@@ -134,14 +153,13 @@ class MonitorService:
             self.health.last_round_finished_at = time.time()
             self.health.last_round_seconds = self.health.last_round_finished_at - started
             return
-        concurrency = max(1, self._config.fetch_concurrency)
-        with ThreadPoolExecutor(max_workers=concurrency) as pool:
-            futures = [pool.submit(self._check_repo, repo) for repo in repos]
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as exc:
-                    logger.warning("仓库检查任务异常: %s", exc)
+        pool = self._get_executor()
+        futures = [pool.submit(self._check_repo, repo) for repo in repos]
+        for future in as_completed(futures):
+            try:
+                future.result()
+            except Exception as exc:
+                logger.warning("仓库检查任务异常: %s", exc)
         finished = time.time()
         self.health.last_round_finished_at = finished
         self.health.last_round_seconds = finished - started
@@ -199,8 +217,12 @@ class MonitorService:
 
     def _check_repo(self, repo: DiscoveredRepo) -> None:
         row = self._store.get_repo_row(repo.repo_key)
-        if row and row["next_retry_at"] and row["next_retry_at"] > time.time():
-            return
+        now = time.time()
+        if row:
+            if row["next_retry_at"] and row["next_retry_at"] > now:
+                return
+            if row["status"] == "ok" and row["next_poll_at"] and row["next_poll_at"] > now:
+                return
         if not repo.reachable:
             self._store.upsert_repo_meta(
                 repo.repo_key,
@@ -216,7 +238,27 @@ class MonitorService:
         repo_path = Path(repo.local_path)
         fail_count = int(row["fail_count"]) if row else 0
         upstream_ref_index = int(row["upstream_ref_index"]) if row else 0
+        gerrit_change_query_index = int(row["gerrit_change_query_index"]) if row else 0
+        gerrit_change_lookup_hash = row["gerrit_change_lookup_hash"] if row else None
+        old_hash = row["last_commit_hash"] if row else None
         try:
+            if (
+                self._config.remote_probe_before_fetch
+                and old_hash
+                and row
+                and row["status"] == "ok"
+            ):
+                unchanged = probe_remote_unchanged(
+                    repo_path,
+                    remote=repo.remote_name,
+                    upstream=repo.upstream,
+                    start_index=upstream_ref_index,
+                    known_hash=old_hash,
+                )
+                if unchanged is True:
+                    self._store.defer_repo_poll(repo.repo_key, self._next_poll_at(repo.repo_key))
+                    return
+
             git_fetch(repo_path, repo.remote_name)
             gerrit_base = enrich_gerrit_base(repo_path, repo.gerrit_base, repo.remote_name)
             if gerrit_base and gerrit_base != repo.gerrit_base:
@@ -229,7 +271,6 @@ class MonitorService:
                     repo.gerrit_project,
                     "ok",
                 )
-            old_hash = row["last_commit_hash"] if row else None
             try:
                 commit_hash, commit_time, subject, author, upstream_ref_index = read_head_commit(
                     repo_path,
@@ -243,14 +284,26 @@ class MonitorService:
             recent = read_recent_commits(repo_path, old_hash, commit_hash)
             existing_change_number = row["gerrit_change_number"] if row else None
             gerrit_change_number = existing_change_number
-            if gerrit_base and (commit_hash != old_hash or not existing_change_number):
+            need_change_lookup = gerrit_base and (
+                commit_hash != old_hash or not existing_change_number
+            )
+            if need_change_lookup and gerrit_change_lookup_hash != commit_hash:
                 try:
-                    gerrit_change_number = resolve_gerrit_change_number(
+                    gerrit_change_number, gerrit_change_query_index = resolve_gerrit_change_number(
                         gerrit_base,
                         repo.gerrit_project,
                         commit_hash,
+                        start_index=gerrit_change_query_index,
                     )
+                    gerrit_change_lookup_hash = commit_hash
+                    if gerrit_change_number is None:
+                        logger.warning(
+                            "Gerrit change number 未找到 %s (%s)",
+                            repo.repo_key,
+                            commit_hash,
+                        )
                 except Exception as exc:
+                    gerrit_change_lookup_hash = commit_hash
                     logger.warning(
                         "Gerrit change number 查询失败 %s (%s): %s",
                         repo.repo_key,
@@ -268,6 +321,9 @@ class MonitorService:
                 recent,
                 gerrit_change_number,
                 upstream_ref_index,
+                gerrit_change_query_index,
+                gerrit_change_lookup_hash,
+                self._next_poll_at(repo.repo_key),
             )
             if changed and old_hash is not None:
                 old_subject = row["last_commit_subject"] if row else None

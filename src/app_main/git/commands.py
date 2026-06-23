@@ -57,6 +57,76 @@ def git_fetch(repo_path: Path, remote: str = "origin") -> None:
     run_git(repo_path, "fetch", "--quiet", remote, "--prune")
 
 
+def _hashes_match(left: str, right: str) -> bool:
+    a = left.lower()
+    b = right.lower()
+    return a == b or a.startswith(b) or b.startswith(a)
+
+
+def local_ref_to_ls_remote_spec(ref: str, remote: str) -> str | None:
+    """将本地跟踪引用转为 ``git ls-remote`` 可用的远端 ref。"""
+    if ref.startswith("refs/remotes/"):
+        rest = ref.removeprefix("refs/remotes/")
+        if not rest.startswith(f"{remote}/"):
+            return None
+        branch = rest.split("/", 1)[1]
+        if branch == "HEAD":
+            return "HEAD"
+        return f"refs/heads/{branch}"
+    prefix = f"{remote}/"
+    if ref.startswith(prefix):
+        return f"refs/heads/{ref[len(prefix):]}"
+    if ref.startswith("refs/heads/") or ref.startswith("refs/tags/"):
+        return ref
+    return None
+
+
+def probe_remote_unchanged(
+    repo_path: Path,
+    *,
+    remote: str,
+    upstream: str | None,
+    start_index: int,
+    known_hash: str,
+    ls_remote_timeout: int = 20,
+) -> bool | None:
+    """探测远端 tip 是否仍为 ``known_hash``。
+
+    Returns:
+        True 表示远端未变，可跳过 fetch；False 表示有更新；None 表示无法探测。
+    """
+    try:
+        ref, _ = resolve_upstream_ref(
+            repo_path,
+            remote=remote,
+            upstream=upstream,
+            start_index=start_index,
+        )
+        local_hash = run_git(repo_path, "rev-parse", ref)
+    except (GitError, UpstreamRefError):
+        return None
+    if not _hashes_match(local_hash, known_hash):
+        return False
+    ls_spec = local_ref_to_ls_remote_spec(ref, remote)
+    if ls_spec is None:
+        return None
+    try:
+        output = run_git(
+            repo_path,
+            "ls-remote",
+            remote,
+            ls_spec,
+            timeout=ls_remote_timeout,
+        )
+    except GitError:
+        return None
+    line = output.strip().splitlines()[0] if output.strip() else ""
+    if not line:
+        return None
+    remote_hash = line.split()[0]
+    return _hashes_match(remote_hash, known_hash)
+
+
 def _try_git_ref(repo_path: Path, label: str, *args: str) -> tuple[str | None, str | None]:
     try:
         return run_git(repo_path, *args), None

@@ -9,6 +9,8 @@ from app_main.git.commands import (
     GitError,
     UpstreamRefError,
     _collect_upstream_ref_attempts,
+    local_ref_to_ls_remote_spec,
+    probe_remote_unchanged,
     read_head_commit,
     resolve_upstream_ref,
     run_git,
@@ -182,3 +184,62 @@ def test_resolve_upstream_wraps_after_start_index(tmp_path: Path) -> None:
     )
     assert ref in {"origin/master", "refs/remotes/origin/master"}
     assert index == master_index
+
+
+def test_local_ref_to_ls_remote_spec() -> None:
+    assert local_ref_to_ls_remote_spec("refs/remotes/origin/master", "origin") == "refs/heads/master"
+    assert local_ref_to_ls_remote_spec("origin/main", "origin") == "refs/heads/main"
+    assert local_ref_to_ls_remote_spec("refs/heads/dev", "origin") == "refs/heads/dev"
+    assert local_ref_to_ls_remote_spec("refs/remotes/upstream/main", "origin") is None
+
+
+def test_probe_remote_unchanged_skips_fetch_when_remote_matches(tmp_path: Path, monkeypatch) -> None:
+    remote = _init_bare_remote(tmp_path)
+    repo = _init_local_repo(tmp_path, remote, branch="main", set_upstream=False)
+    _strip_origin_head(repo)
+    head_hash = run_git(repo, "rev-parse", "refs/remotes/origin/main")
+
+    calls: list[tuple[str, ...]] = []
+    original_run_git = run_git
+
+    def tracking_run_git(repo_path: Path, *args: str, **kwargs):
+        calls.append(args)
+        return original_run_git(repo_path, *args, **kwargs)
+
+    monkeypatch.setattr("app_main.git.commands.run_git", tracking_run_git)
+    result = probe_remote_unchanged(
+        repo,
+        remote="origin",
+        upstream="main",
+        start_index=0,
+        known_hash=head_hash,
+    )
+    assert result is True
+    assert not any(args[0] == "fetch" for args in calls)
+    assert any(args[0] == "ls-remote" for args in calls)
+
+
+def test_probe_remote_unchanged_detects_remote_update(tmp_path: Path, monkeypatch) -> None:
+    remote = _init_bare_remote(tmp_path)
+    repo = _init_local_repo(tmp_path, remote, branch="main", set_upstream=False)
+    _strip_origin_head(repo)
+    known_hash = "0" * 40
+
+    def fake_run_git(repo_path: Path, *args: str, **kwargs):
+        if args[:2] == ("rev-parse",):
+            return known_hash
+        if args[0] == "ls-remote":
+            return f"{'1' * 40}\trefs/heads/main"
+        return run_git(repo_path, *args, **kwargs)
+
+    monkeypatch.setattr("app_main.git.commands.run_git", fake_run_git)
+    assert (
+        probe_remote_unchanged(
+            repo,
+            remote="origin",
+            upstream="main",
+            start_index=0,
+            known_hash=known_hash,
+        )
+        is False
+    )

@@ -92,6 +92,9 @@ class Store:
             )
             self._ensure_column("repo_state", "gerrit_change_number", "INTEGER")
             self._ensure_column("repo_state", "upstream_ref_index", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column("repo_state", "gerrit_change_query_index", "INTEGER NOT NULL DEFAULT 0")
+            self._ensure_column("repo_state", "gerrit_change_lookup_hash", "TEXT")
+            self._ensure_column("repo_state", "next_poll_at", "REAL NOT NULL DEFAULT 0")
             self._ensure_column("repo_state", "ai_summary", "TEXT")
             self._ensure_column("repo_state", "ai_summary_status", "TEXT")
             self._ensure_column("repo_state", "ai_summary_commit_hash", "TEXT")
@@ -153,6 +156,9 @@ class Store:
         recent_commits: list[CommitInfo],
         gerrit_change_number: int | None = None,
         upstream_ref_index: int = 0,
+        gerrit_change_query_index: int = 0,
+        gerrit_change_lookup_hash: str | None = None,
+        next_poll_at: float = 0,
     ) -> bool:
         """写入成功检查结果；若提交号变化返回 True。"""
         with self._lock:
@@ -195,6 +201,9 @@ class Store:
                     fail_count=0,
                     next_retry_at=0,
                     upstream_ref_index=?,
+                    gerrit_change_query_index=?,
+                    gerrit_change_lookup_hash=?,
+                    next_poll_at=?,
                     {ai_reset_sql}
                     updated_at=?
                 WHERE repo_key=?
@@ -207,6 +216,9 @@ class Store:
                     gerrit_change_number,
                     commits_json,
                     upstream_ref_index,
+                    gerrit_change_query_index,
+                    gerrit_change_lookup_hash,
+                    next_poll_at,
                     *ai_params,
                     time.time(),
                     repo_key,
@@ -214,6 +226,19 @@ class Store:
             )
             self._conn.commit()
             return changed
+
+    def defer_repo_poll(self, repo_key: str, next_poll_at: float) -> None:
+        with self._lock:
+            self._conn.execute(
+                """
+                UPDATE repo_state SET
+                    next_poll_at=?,
+                    updated_at=?
+                WHERE repo_key=?
+                """,
+                (next_poll_at, time.time(), repo_key),
+            )
+            self._conn.commit()
 
     def update_ai_summary(
         self,

@@ -15,7 +15,10 @@ public_base_path: ""
 allow_anonymous_repo_list: true
 poll_interval_seconds: 120
 manifest_refresh_seconds: 300
-fetch_concurrency: 16
+# 并行 git 操作上限；仓库多或机器卡顿时可调为 2～4
+fetch_concurrency: 4
+# 无变更时先 ls-remote 探测，跳过 fetch，降低磁盘与网络压力
+remote_probe_before_fetch: true
 frontend_poll_seconds: 30
 
 # 启动时向 SMTP 账号发送自检邮件；false 则跳过

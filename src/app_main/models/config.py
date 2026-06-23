@@ -37,7 +37,11 @@ class AppConfig(BaseModel):
     allow_anonymous_repo_list: bool = Field(default=True, description="未在白名单时是否允许只读查看全部仓库")
     poll_interval_seconds: int = Field(default=120, description="全局仓库轮询间隔（秒）")
     manifest_refresh_seconds: int = Field(default=300, description="清单重读间隔（秒）")
-    fetch_concurrency: int = Field(default=16, description="并行 git fetch 上限")
+    fetch_concurrency: int = Field(default=4, description="并行 git 操作上限；机器卡顿时可再调低")
+    remote_probe_before_fetch: bool = Field(
+        default=True,
+        description="无本地变更时先 ls-remote 探测远端；未变则跳过 fetch",
+    )
     frontend_poll_seconds: int = Field(default=30, description="建议前端列表刷新间隔（秒）")
     smtp_startup_check: bool = Field(
         default=True,
