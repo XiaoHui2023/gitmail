@@ -6,9 +6,12 @@ export function markdownPreview(text) {
   return text
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^\s*[-*+]\s+/gm, "")
+    .replace(/^\s*\d+\.\s+/gm, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/\*\*([^*]+)\*\*/g, "$1")
     .replace(/\*([^*]+)\*/g, "$1")
     .replace(/`([^`]+)`/g, "$1")
+    .replace(/^\s*>\s?/gm, "")
     .replace(/\s*\n+\s*/g, " · ")
     .trim();
 }

@@ -53,7 +53,7 @@ export default function EllipsisTooltip({
   const showPopup = open && (overflow || variant === "ai") && popupBody && popupBody !== "—";
 
   return (
-    <span
+    <div
       className={`ellipsis-tooltip-wrap ${className}`.trim()}
       onMouseEnter={showTip}
       onMouseLeave={hideTip}
@@ -69,7 +69,7 @@ export default function EllipsisTooltip({
         {cellDisplay}
       </span>
       {showPopup ? (
-        <span
+        <div
           id={tipId}
           role="tooltip"
           className={`ellipsis-tooltip-popup${variant === "ai" ? " ai-summary-popup" : ""}`}
@@ -80,8 +80,8 @@ export default function EllipsisTooltip({
           ) : (
             popupBody
           )}
-        </span>
+        </div>
       ) : null}
-    </span>
+    </div>
   );
 }
