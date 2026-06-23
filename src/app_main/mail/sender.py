@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+import html
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from app_main.ai.formatting import ai_summary_to_html, ai_summary_to_plain
 from app_main.env_settings import SmtpSettings
 from app_main.manifest.gerrit_urls import build_gerrit_urls
 from app_main.models.repo import CommitInfo, RepoSnapshot
@@ -85,7 +85,7 @@ def _build_text_body(
         if urls.commit_url:
             lines.append(f"  {urls.commit_url}")
     if ai_summary:
-        lines.extend(["", "AI 总结:", ai_summary_to_plain(ai_summary)])
+        lines.extend(["", "AI 总结:", ai_summary])
     if repo.gerrit_project_url:
         lines.extend(["", f"Gerrit 项目页: {repo.gerrit_project_url}"])
     return "\n".join(lines)
@@ -110,11 +110,11 @@ def _build_html_body(
         project_link = f'<p><a href="{repo.gerrit_project_url}">Gerrit 项目页</a></p>'
     summary_block = ""
     if ai_summary:
-        summary_html = ai_summary_to_html(ai_summary)
         summary_block = (
             '<div style="margin-top:1em">'
             "<p><strong>AI 总结</strong></p>"
-            f'<div style="line-height:1.5">{summary_html}</div>'
+            f'<pre style="margin:0;font-family:inherit;white-space:pre-wrap;line-height:1.5">'
+            f"{html.escape(ai_summary)}</pre>"
             "</div>"
         )
     return (

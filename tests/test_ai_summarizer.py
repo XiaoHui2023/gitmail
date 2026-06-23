@@ -8,6 +8,7 @@ import pytest
 
 from app_main.ai.summarizer import (
     AiSummaryError,
+    _parse_chat_completion_content,
     build_user_message,
     describe_ai_endpoint,
     ping_ai_api,
@@ -42,8 +43,8 @@ def test_system_prompt_requires_completeness() -> None:
 
     assert "不得遗漏" in COMMIT_UPDATE_SYSTEM_PROMPT
     assert "自检" in COMMIT_UPDATE_SYSTEM_PROMPT
-    assert "Markdown" in COMMIT_UPDATE_SYSTEM_PROMPT
-    assert "###" in COMMIT_UPDATE_SYSTEM_PROMPT
+    assert "纯文本" in COMMIT_UPDATE_SYSTEM_PROMPT
+    assert "不要使用 Markdown" in COMMIT_UPDATE_SYSTEM_PROMPT
 
 
 def test_summarize_skipped_when_not_configured() -> None:
@@ -111,6 +112,22 @@ def test_post_chat_completion_error_includes_endpoint() -> None:
                 user_message="user",
                 timeout_seconds=1,
             )
+
+
+def test_parse_chat_completion_content_reports_missing_choices() -> None:
+    with pytest.raises(AiSummaryError, match="缺少 choices"):
+        _parse_chat_completion_content('{"id":"x","object":"chat.completion"}')
+
+
+def test_parse_chat_completion_content_reports_api_error_field() -> None:
+    raw = '{"error":{"message":"invalid api key","type":"invalid_request_error"}}'
+    with pytest.raises(AiSummaryError, match="invalid api key"):
+        _parse_chat_completion_content(raw)
+
+
+def test_parse_chat_completion_content_reports_invalid_json() -> None:
+    with pytest.raises(AiSummaryError, match="JSON 解析失败"):
+        _parse_chat_completion_content("not-json")
 
 
 def test_summarize_retries_then_fails() -> None:

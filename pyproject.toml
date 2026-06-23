@@ -6,7 +6,6 @@ requires-python = ">=3.10"
 dependencies = [
     "fastapi",
     "uvicorn[standard]",
-    "markdown",
     "pydantic",
     "pydantic-settings",
     "pyyaml",
