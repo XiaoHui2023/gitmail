@@ -99,43 +99,43 @@ def test_webhook_api_crud_and_test(tmp_path: Path) -> None:
     port = server.server_address[1]
     hook_url = f"http://127.0.0.1:{port}/hook"
 
-    client = _make_client(tmp_path)
-    store = client.app.state.ctx.store  # type: ignore[attr-defined]
-    store.upsert_repo_meta(
-        "demo::a/b",
-        "demo",
-        "a/b",
-        "/tmp/a/b",
-        "http://review.example.com",
-        "platform/a",
-        "ok",
-    )
+    with _make_client(tmp_path) as client:
+        store = client.app.state.ctx.store  # type: ignore[attr-defined]
+        store.upsert_repo_meta(
+            "demo::a/b",
+            "demo",
+            "a/b",
+            "/tmp/a/b",
+            "http://review.example.com",
+            "platform/a",
+            "ok",
+        )
 
-    created = client.post(
-        "/api/webhooks",
-        json={
-            "repo_key": "demo::a/b",
-            "url": hook_url,
-            "label": "CI",
-        },
-    )
-    assert created.status_code == 200
-    data = created.json()
-    assert data["secret"].startswith("whsec_")
-    webhook_id = data["id"]
+        created = client.post(
+            "/api/webhooks",
+            json={
+                "repo_key": "demo::a/b",
+                "url": hook_url,
+                "label": "CI",
+            },
+        )
+        assert created.status_code == 200
+        data = created.json()
+        assert data["secret"].startswith("whsec_")
+        webhook_id = data["id"]
 
-    listed = client.get("/api/webhooks")
-    assert listed.status_code == 200
-    assert len(listed.json()["items"]) == 1
+        listed = client.get("/api/webhooks")
+        assert listed.status_code == 200
+        assert len(listed.json()["items"]) == 1
 
-    tested = client.post(f"/api/webhooks/{webhook_id}/test")
-    assert tested.status_code == 200
-    assert tested.json()["ok"] is True
-    assert received["event"] == "webhook.test"
-    assert received["body"]["type"] == "webhook.test"
+        tested = client.post(f"/api/webhooks/{webhook_id}/test")
+        assert tested.status_code == 200
+        assert tested.json()["ok"] is True
+        assert received["event"] == "webhook.test"
+        assert received["body"]["type"] == "webhook.test"
 
-    deleted = client.delete(f"/api/webhooks/{webhook_id}")
-    assert deleted.status_code == 200
+        deleted = client.delete(f"/api/webhooks/{webhook_id}")
+        assert deleted.status_code == 200
     server.shutdown()
 
 

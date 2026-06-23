@@ -29,6 +29,12 @@ from app_main.webhooks.dispatcher import WebhookDispatcher
 
 logger = logging.getLogger(__name__)
 
+MONITOR_START_TIMEOUT_SECONDS = 5.0
+
+
+class MonitorNotRunningError(RuntimeError):
+    """监控后台线程未在预期时间内进入运行状态。"""
+
 
 @dataclass
 class MonitorHealth:
@@ -72,6 +78,24 @@ class MonitorService:
         self._thread = threading.Thread(target=self._loop, name="gitmail-monitor", daemon=True)
         self._thread.start()
 
+    def is_running(self) -> bool:
+        thread = self._thread
+        return self.health.running and thread is not None and thread.is_alive()
+
+    def ensure_running(self, timeout: float = MONITOR_START_TIMEOUT_SECONDS) -> None:
+        """等待监控线程进入运行状态；超时或线程退出时抛出 MonitorNotRunningError。"""
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            thread = self._thread
+            if thread is not None and not thread.is_alive():
+                raise MonitorNotRunningError("监控线程已退出")
+            if self.health.running:
+                return
+            time.sleep(0.05)
+        raise MonitorNotRunningError(
+            f"监控调度在 {timeout:.0f}s 内未进入运行状态"
+        )
+
     def stop(self) -> None:
         self._stop.set()
         if self._thread:
@@ -89,6 +113,12 @@ class MonitorService:
             except Exception as exc:
                 logger.exception("监控轮次异常: %s", exc)
             self.health.failed_repo_count = self._store.count_failed_repos()
+            logger.info(
+                "监控轮次完成: 仓库 %d 个, 耗时 %.1fs, 失败 %d 个",
+                self.health.last_round_repo_count,
+                self.health.last_round_seconds,
+                self.health.failed_repo_count,
+            )
             wait = max(5, self._config.poll_interval_seconds)
             if self._stop.wait(wait + random.uniform(0, 3)):
                 break

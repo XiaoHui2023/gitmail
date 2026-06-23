@@ -15,13 +15,58 @@ from app_main.store.database import Store
 
 
 def test_status_ok() -> None:
-    client = TestClient(create_app())
-    response = client.get("/api/status")
-    assert response.status_code == 200
-    data = response.json()
-    assert data["ok"] is True
-    assert data["name"] == "gitmail"
-    assert "monitor" in data
+    with TestClient(create_app()) as client:
+        response = client.get("/api/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["ok"] is True
+        assert data["name"] == "gitmail"
+        assert "monitor" in data
+        assert data["monitor"]["running"] is True
+
+
+def test_status_monitor_running_with_public_base_path(tmp_path: Path) -> None:
+    cfg = {
+        "email_domain": "corp.test",
+        "public_base_path": "/tools/gitmail",
+        "projects": [],
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
+    with TestClient(create_app(cfg_path)) as client:
+        response = client.get("/tools/gitmail/api/status")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["monitor"]["running"] is True
+
+
+def test_status_returns_503_when_monitor_not_running(tmp_path: Path) -> None:
+    cfg = {
+        "email_domain": "corp.test",
+        "projects": [],
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
+    with TestClient(create_app(cfg_path)) as client:
+        client.app.state.ctx.monitor.health.running = False
+        response = client.get("/api/status")
+        assert response.status_code == 503
+        assert response.json()["detail"] == "监控调度未运行"
+
+
+def test_monitor_logs_each_round(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
+    import logging
+
+    caplog.set_level(logging.INFO, logger="app_main.monitor.service")
+    cfg = {
+        "email_domain": "corp.test",
+        "projects": [],
+    }
+    cfg_path = tmp_path / "config.yaml"
+    cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
+    with TestClient(create_app(cfg_path)) as client:
+        client.get("/api/status")
+    assert any("监控轮次完成" in record.message for record in caplog.records)
 
 
 def test_ip_whitelist_wildcard() -> None:
@@ -127,25 +172,26 @@ def test_api_with_custom_database_path(tmp_path: Path) -> None:
     }
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
-    client = TestClient(create_app(cfg_path))
-    assert client.get("/api/status").status_code == 200
+    with TestClient(create_app(cfg_path)) as client:
+        assert client.get("/api/status").status_code == 200
     assert db_file.is_file()
 
 
 def test_api_with_config(tmp_path: Path) -> None:
     cfg = {
         "email_domain": "corp.test",
+        "database_path": str(tmp_path / "gitmail.db"),
         "ip_whitelist": ["testclient"],
         "projects": [],
     }
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
-    client = TestClient(create_app(cfg_path))
-    me = client.get("/api/user/me")
-    assert me.status_code == 200
-    repos = client.get("/api/repos")
-    assert repos.status_code == 200
-    assert repos.json()["items"] == []
+    with TestClient(create_app(cfg_path)) as client:
+        me = client.get("/api/user/me")
+        assert me.status_code == 200
+        repos = client.get("/api/repos")
+        assert repos.status_code == 200
+        assert repos.json()["items"] == []
 
 
 def test_api_username_extract_regexes_from_config(tmp_path: Path) -> None:
@@ -158,8 +204,8 @@ def test_api_username_extract_regexes_from_config(tmp_path: Path) -> None:
     }
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(yaml.dump(cfg), encoding="utf-8")
-    client = TestClient(create_app(cfg_path))
-    me = client.get("/api/user/me")
-    assert me.status_code == 200
-    assert me.json()["username"] == "user"
-    assert me.json()["email"] == "user@corp.test"
+    with TestClient(create_app(cfg_path)) as client:
+        me = client.get("/api/user/me")
+        assert me.status_code == 200
+        assert me.json()["username"] == "user"
+        assert me.json()["email"] == "user@corp.test"

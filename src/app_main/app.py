@@ -14,7 +14,7 @@ from app_main.config_loader import load_config, resolve_config_path
 from app_main.env_settings import AiSettings, SmtpSettings
 from app_main.feature_runtime import OperationalAi, OperationalSmtp
 from app_main.mail.notifier import Notifier
-from app_main.monitor.service import MonitorService
+from app_main.monitor.service import MonitorNotRunningError, MonitorService
 from app_main.paths import resolve_database_path, resolve_frontend_dist
 from app_main.store.database import Store
 from app_main.webhooks.dispatcher import WebhookDispatcher
@@ -29,16 +29,28 @@ def set_config_path(path: Path | None) -> None:
     _config_path = path
 
 
-def _build_inner_app(ctx: AppState) -> FastAPI:
+def _make_lifespan(ctx: AppState):
+    """创建应用 lifespan；须挂在 uvicorn 实际服务的顶层 FastAPI 上。"""
+
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         ctx.monitor.start()
+        try:
+            ctx.monitor.ensure_running()
+        except MonitorNotRunningError as exc:
+            logger.error("监控调度启动失败: %s", exc)
+            raise
         logger.info("监控调度已启动")
         yield
         ctx.monitor.stop()
         ctx.store.close()
         logger.info("监控调度已停止")
 
+    return lifespan
+
+
+def _build_inner_app(ctx: AppState, *, attach_lifespan: bool = True) -> FastAPI:
+    lifespan = _make_lifespan(ctx) if attach_lifespan else None
     app = FastAPI(title="gitmail", lifespan=lifespan)
     app.state.ctx = ctx
     app.include_router(api_router)
@@ -84,10 +96,11 @@ def create_app(
     ctx = AppState(config=config, store=store, monitor=monitor, smtp=smtp, ai=ai, webhooks=webhooks)
 
     prefix = config.public_base_path.strip().rstrip("/")
-    inner = _build_inner_app(ctx)
     if not prefix:
-        return inner
+        return _build_inner_app(ctx)
 
-    root = FastAPI(title="gitmail-root")
+    # mount 的子应用不会执行自身 lifespan，监控启停须放在外层。
+    inner = _build_inner_app(ctx, attach_lifespan=False)
+    root = FastAPI(title="gitmail-root", lifespan=_make_lifespan(ctx))
     root.mount(prefix, inner)
     return root
