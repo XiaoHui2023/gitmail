@@ -42,6 +42,8 @@ def test_system_prompt_requires_completeness() -> None:
 
     assert "不得遗漏" in COMMIT_UPDATE_SYSTEM_PROMPT
     assert "自检" in COMMIT_UPDATE_SYSTEM_PROMPT
+    assert "Markdown" in COMMIT_UPDATE_SYSTEM_PROMPT
+    assert "###" in COMMIT_UPDATE_SYSTEM_PROMPT
 
 
 def test_summarize_skipped_when_not_configured() -> None:

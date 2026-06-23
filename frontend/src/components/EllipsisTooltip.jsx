@@ -1,4 +1,6 @@
 import { useId, useRef, useState } from "react";
+import MarkdownContent from "./MarkdownContent.jsx";
+import { markdownPreview } from "../utils/markdownPreview.js";
 
 /**
  * 单行省略 + 悬停/聚焦显示完整内容的提示框。
@@ -20,6 +22,8 @@ export default function EllipsisTooltip({
     text ??
     (typeof children === "string" || typeof children === "number" ? String(children) : "");
   const display = children ?? text ?? "—";
+  const cellDisplay =
+    variant === "ai" && typeof display === "string" ? markdownPreview(display) : display;
 
   function refreshOverflow() {
     const el = cellRef.current;
@@ -62,16 +66,20 @@ export default function EllipsisTooltip({
         tabIndex={0}
         aria-describedby={showPopup ? tipId : undefined}
       >
-        {display}
+        {cellDisplay}
       </span>
       {showPopup ? (
         <span
           id={tipId}
           role="tooltip"
-          className="ellipsis-tooltip-popup"
+          className={`ellipsis-tooltip-popup${variant === "ai" ? " ai-summary-popup" : ""}`}
           style={{ top: coords.top, left: coords.left }}
         >
-          {popupBody}
+          {variant === "ai" ? (
+            <MarkdownContent text={popupBody} className="ai-summary-markdown" />
+          ) : (
+            popupBody
+          )}
         </span>
       ) : null}
     </span>

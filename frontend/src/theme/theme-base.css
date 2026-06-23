@@ -352,6 +352,51 @@ a.icon-btn:hover {
   pointer-events: none;
 }
 
+.ai-summary-popup {
+  white-space: normal;
+  max-width: min(32rem, calc(100vw - 2rem));
+  padding: 0.65rem 0.85rem;
+}
+
+.ai-summary-markdown > :first-child {
+  margin-top: 0;
+}
+
+.ai-summary-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.ai-summary-markdown h3 {
+  margin: 0.65rem 0 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--color-muted);
+  text-transform: none;
+}
+
+.ai-summary-markdown h3:first-child {
+  margin-top: 0;
+}
+
+.ai-summary-markdown ul,
+.ai-summary-markdown ol {
+  margin: 0.2rem 0 0.45rem;
+  padding-left: 1.15rem;
+}
+
+.ai-summary-markdown li {
+  margin: 0.2rem 0;
+}
+
+.ai-summary-markdown li::marker {
+  color: var(--color-accent, var(--color-muted));
+}
+
+.ai-summary-markdown p {
+  margin: 0.35rem 0;
+}
+
 .time-combined-cell,
 .time-absolute-cell {
   white-space: nowrap;
