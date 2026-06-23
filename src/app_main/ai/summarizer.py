@@ -149,28 +149,13 @@ def ping_ai_api(
     )
 
 
-def _log_ai_exchange(
+def _log_ai_response(
     *,
-    settings: AiSettings,
     project_name: str,
     repo_path: str,
-    system_prompt: str,
-    user_message: str,
-    response: str | None = None,
-    error: str | None = None,
+    response: str,
 ) -> None:
-    chat_logger.info(
-        "===== %s > %s (%s) =====",
-        project_name,
-        repo_path,
-        describe_ai_endpoint(settings),
-    )
-    chat_logger.info("--- system ---\n%s", system_prompt)
-    chat_logger.info("--- user ---\n%s", user_message)
-    if response is not None:
-        chat_logger.info("--- assistant ---\n%s", response)
-    if error is not None:
-        chat_logger.warning("--- error ---\n%s", error)
+    chat_logger.info("[%s > %s]\n%s", project_name, repo_path, response)
 
 
 def summarize_repo_update(
@@ -199,25 +184,14 @@ def summarize_repo_update(
                 user_message=user_message,
                 timeout_seconds=timeout_seconds,
             )
-            _log_ai_exchange(
-                settings=settings,
+            _log_ai_response(
                 project_name=project_name,
                 repo_path=repo_path,
-                system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
-                user_message=user_message,
                 response=text,
             )
             return AiSummaryResult(text=text, status="ready")
         except AiSummaryError as exc:
             last_error = exc
-            _log_ai_exchange(
-                settings=settings,
-                project_name=project_name,
-                repo_path=repo_path,
-                system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
-                user_message=user_message,
-                error=str(exc),
-            )
             logger.warning(
                 "AI 总结失败 (%s/%s) %s > %s (%s): %s",
                 attempt + 1,
@@ -229,14 +203,6 @@ def summarize_repo_update(
             )
         except Exception as exc:
             last_error = exc
-            _log_ai_exchange(
-                settings=settings,
-                project_name=project_name,
-                repo_path=repo_path,
-                system_prompt=COMMIT_UPDATE_SYSTEM_PROMPT,
-                user_message=user_message,
-                error=str(exc),
-            )
             logger.warning(
                 "AI 总结异常 (%s/%s) %s > %s (%s): %s",
                 attempt + 1,
