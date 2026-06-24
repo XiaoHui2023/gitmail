@@ -174,11 +174,28 @@ a.icon-btn:hover {
   font-size: 1.5rem;
 }
 
+.page-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.page-title-row .page-title {
+  margin: 0;
+}
+
+.refresh-indicator {
+  color: var(--color-fg-muted);
+  font-size: 0.85rem;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
   margin-bottom: 1rem;
+  align-items: center;
 }
 
 .filters input {
@@ -188,6 +205,83 @@ a.icon-btn:hover {
   border: 1px solid var(--color-border);
   background: var(--color-bg);
   color: var(--color-fg);
+}
+
+.filter-select {
+  min-width: 12rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
+
+.filter-select-narrow {
+  min-width: 5rem;
+}
+
+.filter-input-narrow {
+  width: 4.5rem;
+  padding: 0.45rem 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font: inherit;
+}
+
+.age-custom-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.age-custom-hint {
+  color: var(--color-fg-muted);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.filter-summary {
+  margin: -0.5rem 0 0.75rem;
+  color: var(--color-fg-muted);
+  font-size: 0.85rem;
+}
+
+.loading-panel {
+  margin-top: 0.25rem;
+}
+
+.loading-hint {
+  margin: 0 0 0.75rem;
+  color: var(--color-fg-muted);
+  font-size: 0.9rem;
+}
+
+.repo-table-skeleton .skeleton-bar {
+  display: block;
+  height: 0.85rem;
+  border-radius: 0.35rem;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--color-border) 55%, transparent) 25%,
+    color-mix(in srgb, var(--color-border) 25%, transparent) 50%,
+    color-mix(in srgb, var(--color-border) 55%, transparent) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-bar-lg { width: 92%; }
+.skeleton-bar-md { width: 72%; }
+.skeleton-bar-sm { width: 58%; }
+.skeleton-bar-xs { width: 36%; }
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 .repo-table {

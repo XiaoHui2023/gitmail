@@ -115,8 +115,18 @@ class MonitorService:
             )
         return self._executor
 
-    def _next_poll_at(self, repo_key: str) -> float:
+    def _next_poll_at(self, repo_key: str, last_commit_time: int | None = None) -> float:
         interval = max(30, self._config.poll_interval_seconds)
+        if last_commit_time:
+            age_days = max(0.0, (time.time() - last_commit_time) / 86400)
+            if age_days > 365:
+                interval = int(interval * 8)
+            elif age_days > 180:
+                interval = int(interval * 4)
+            elif age_days > 90:
+                interval = int(interval * 2)
+            elif age_days > 30:
+                interval = int(interval * 1.5)
         slot = (hash(repo_key) & 0x7FFFFFFF) % interval
         return time.time() + interval + slot * 0.2 + random.uniform(0, 3)
 
@@ -256,7 +266,11 @@ class MonitorService:
                     known_hash=old_hash,
                 )
                 if unchanged is True:
-                    self._store.defer_repo_poll(repo.repo_key, self._next_poll_at(repo.repo_key))
+                    commit_time = int(row["last_commit_time"]) if row["last_commit_time"] else None
+                    self._store.defer_repo_poll(
+                        repo.repo_key,
+                        self._next_poll_at(repo.repo_key, commit_time),
+                    )
                     return
 
             git_fetch(repo_path, repo.remote_name)
@@ -323,7 +337,7 @@ class MonitorService:
                 upstream_ref_index,
                 gerrit_change_query_index,
                 gerrit_change_lookup_hash,
-                self._next_poll_at(repo.repo_key),
+                self._next_poll_at(repo.repo_key, commit_time),
             )
             if changed and old_hash is not None:
                 old_subject = row["last_commit_subject"] if row else None

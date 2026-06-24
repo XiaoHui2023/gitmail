@@ -19,10 +19,16 @@ def _filter_rows(rows, project: str, path: str):
         yield row
 
 
-def _serialize_snapshot(store, row, user: ResolvedUser | None) -> dict:
+def _serialize_snapshot(
+    store,
+    row,
+    user: ResolvedUser | None,
+    subscribed_keys: set[str] | None = None,
+) -> dict:
     subscribed = False
     if user and user.allowed:
-        subscribed = row["repo_key"] in store.list_subscribed_keys(user.username)
+        keys = subscribed_keys if subscribed_keys is not None else store.list_subscribed_keys(user.username)
+        subscribed = row["repo_key"] in keys
     snap = store.row_to_snapshot(row, subscribed=subscribed)
     return {
         "repo_key": snap.repo_key,
@@ -62,7 +68,12 @@ def list_repos(
     if not state.config.allow_anonymous_repo_list and not user.allowed:
         raise HTTPException(status_code=403, detail="需要白名单 IP 才能查看仓库列表")
     rows = list(_filter_rows(state.store.list_repo_rows(), project, path))
-    items = [_serialize_snapshot(state.store, row, user) for row in rows]
+    subscribed_keys = (
+        state.store.list_subscribed_keys(user.username) if user.allowed else set()
+    )
+    items = [
+        _serialize_snapshot(state.store, row, user, subscribed_keys) for row in rows
+    ]
     return {"items": items}
 
 
@@ -82,5 +93,8 @@ def list_subscribed_repos(
         if row["repo_key"] in keys
     ]
     rows = list(_filter_rows(rows, project, path))
-    items = [_serialize_snapshot(state.store, row, user) for row in rows]
+    subscribed_keys = state.store.list_subscribed_keys(user.username)
+    items = [
+        _serialize_snapshot(state.store, row, user, subscribed_keys) for row in rows
+    ]
     return {"items": items}
